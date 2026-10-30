@@ -1,0 +1,107 @@
+{
+  "kind": "engine_benchmark",
+  "git_commit": "efe29ac",
+  "git_dirty": true,
+  "katago_version": "1.18.0",
+  "nets": {
+    "main": {
+      "file": "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz",
+      "sha256": "9d7a6afed8ff5b74894727e156f04f0cd36060a24824892008fbb6e0cba51f1d"
+    },
+    "human": {
+      "file": "b18c384nbt-humanv0.bin.gz",
+      "sha256": "637746e44f0efe00ad1245a50aa9bbf0716efe364c43965ead97bd6835d84ab5"
+    }
+  },
+  "analysis_config": {
+    "file": "katago_analysis.cfg",
+    "sha256": "197f69cc8b4c4d49271f937396fa8c6ed37e58878e964e980f997c5df3f20d23",
+    "numAnalysisThreads": 8,
+    "numSearchThreadsPerAnalysisThread": 2,
+    "wideRootNoise": null,
+    "ignorePreRootHistory": null,
+    "rootNumSymmetriesToSample": null,
+    "reportAnalysisWinratesAs": "BLACK",
+    "nnCacheSizePowerOfTwo": 23,
+    "query_overrides": {
+      "analyze": {
+        "reportAnalysisWinratesAs": "SIDETOMOVE"
+      },
+      "human_policy": {
+        "reportAnalysisWinratesAs": "SIDETOMOVE",
+        "ignorePreRootHistory": false,
+        "rootNumSymmetriesToSample": 8
+      }
+    }
+  },
+  "hardware": {
+    "host": "DESKTOP-DNJODF2",
+    "os": "Windows 11",
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "driver": "610.88",
+    "cuda": null,
+    "katago_backend": "cuda",
+    "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+    "ram_gb": 189.6,
+    "python": "3.12.8"
+  },
+  "positions": 50,
+  "positions_seed": 20261027,
+  "visits": 200,
+  "human_profile": "rank_10k",
+  "started": "2026-10-30T17:35:49+08:00",
+  "finished": "2026-10-30T17:36:59+08:00",
+  "levels": {
+    "1": {
+      "concurrency": 1,
+      "analyze": {
+        "p50_ms": 796.22,
+        "p95_ms": 1090.37,
+        "mean_ms": 809.46
+      },
+      "human_policy": {
+        "p50_ms": 74.22,
+        "p95_ms": 97.93,
+        "mean_ms": 75.25
+      },
+      "visits_per_s": 248.3,
+      "queries_per_s": 1.24,
+      "human_policy_queries_per_s": 13.28,
+      "wall_s": 44.238
+    },
+    "4": {
+      "concurrency": 4,
+      "analyze": {
+        "p50_ms": 791.22,
+        "p95_ms": 910.47,
+        "mean_ms": 794.11
+      },
+      "human_policy": {
+        "p50_ms": 149.31,
+        "p95_ms": 159.83,
+        "mean_ms": 145.66
+      },
+      "visits_per_s": 988.3,
+      "queries_per_s": 4.92,
+      "human_policy_queries_per_s": 27.08,
+      "wall_s": 12.016
+    },
+    "8": {
+      "concurrency": 8,
+      "analyze": {
+        "p50_ms": 1042.39,
+        "p95_ms": 1107.12,
+        "mean_ms": 1037.03
+      },
+      "human_policy": {
+        "p50_ms": 161.35,
+        "p95_ms": 171.34,
+        "mean_ms": 160.28
+      },
+      "visits_per_s": 1405.2,
+      "queries_per_s": 6.99,
+      "human_policy_queries_per_s": 45.23,
+      "wall_s": 8.256
+    }
+  }
+}
