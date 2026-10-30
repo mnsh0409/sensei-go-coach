@@ -2,7 +2,7 @@
 
 play:
   max_visits: 200
-  epsilon: 0.02                # replaced in T4 by epsilon* from the C1 pilot rule (must be one of C1.pilot_epsilons)
+  epsilon: 0.01                # epsilon* from the clean C1 pilot (results/pilot_C1_20261030-180727.json, commit c4aae8f)
   mistake_threshold: 0.05      # learner winrate loss above this is a mistake (INTERFACES.md)
   # Selection temperature by learner rank band (numeric rank scale: 1k = 0, 10k = -9, 1d = 1).
   temperature_by_rank:
