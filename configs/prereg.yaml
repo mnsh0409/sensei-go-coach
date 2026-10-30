@@ -11,6 +11,11 @@ revisions:
       date window; C3 gained greedy and oracle policies, a game-sized observation model and gap closure as the
       headline; entropy thresholds moved to configs/default.yaml (runtime). Design-stage C3 simulations used
       seeds 0 to 2; confirmatory runs use seeds.global.
+  - date: "2026-10-30"
+    before_any_run: true
+    reason: >-
+      Approved by the human before any C1 game: C1.learner_profile fixes the learner policy pi_L behind Sensei's
+      choices in C1 to the HumanSL profile rank_10k, the app's default declared rank. v2 left it unspecified.
 
 game:
   board_size: 19
@@ -46,6 +51,7 @@ C1:
   bootstrap_resamples: 10000
   ci: 0.95
   success_max_cost_elo_upper: 150
+  learner_profile: rank_10k     # pi_L for Sensei in C1 (revision 2026-10-30)
 
 C2:
   epsilon: c1_confirmatory     # epsilon* chosen by the C1 pilot rule
