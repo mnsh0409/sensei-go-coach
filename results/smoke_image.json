@@ -1,0 +1,9 @@
+{
+  "model": "muse-spark-1.3",
+  "board_size": 9,
+  "n_stones": 7,
+  "precision": 1.0,
+  "recall": 1.0,
+  "raw_reply": "{\"black\": [\"C3\", \"D4\", \"E5\", \"G7\"], \"white\": [\"C7\", \"F3\", \"G4\"]}",
+  "ts": 1793350753.518
+}

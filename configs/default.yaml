@@ -1,0 +1,52 @@
+# Runtime settings for the app. Not pre-registered; may change during the build.
+
+play:
+  max_visits: 200
+  epsilon: 0.02                # replaced in T4 by epsilon* from the C1 pilot rule (must be one of C1.pilot_epsilons)
+  mistake_threshold: 0.05      # learner winrate loss above this is a mistake (INTERFACES.md)
+  # Selection temperature by learner rank band (numeric rank scale: 1k = 0, 10k = -9, 1d = 1).
+  temperature_by_rank:
+    - {max_rank: -14.0, temperature: 0.30}   # 15k and weaker
+    - {max_rank: -6.0, temperature: 0.15}    # 14k to 7k
+    - {max_rank: 0.0, temperature: 0.05}     # 6k to 1k
+    - {max_rank: 99.0, temperature: 0.0}     # dan
+
+selector:
+  entropy_low: 0.5             # nats; placeholders, calibrated in T5 with human approval
+  entropy_high: 2.0
+
+explainer:
+  max_tool_rounds: 4
+  max_sentences: 4
+  reasoning_effort: low
+  language: en
+
+api:
+  # Meta Model API prices in USD per million tokens (muse-spark-1.3 and 1.1, Standard mode),
+  # from dev.meta.ai/docs/pricing-rate-limits, checked 2026-10-27. Re-check before relying on them.
+  price_input: 1.25
+  price_cached_input: 0.15
+  price_output: 4.25
+  budget_warn_usd: 100
+
+topics:
+  n_topics: 8
+  window: 5
+  fit_games: 300
+  fit_visits: 30
+  loss_bins: [0.05, 0.10, 0.20]   # small: 0.05 to 0.10, medium: 0.10 to 0.20, large: above 0.20
+  model: results/topics_v1.json   # written by scripts/fit_topics.py (T7); the app runs untagged without it
+  names: []                       # one name per fitted topic, set by the human at the T7 gate (results/topics_v1.md)
+  # Fallback if fitted topics are unreadable (T7 human gate).
+  fallback_categories: [opening_direction, life_and_death, capturing_races, shape, endgame, tenuki_timing, invasion_reduction, connection_cut]
+
+splits:
+  # C2 candidates drawn per band by scripts/make_splits.py, as a multiple of C2.positions_per_band: eval/c2_relevance.py
+  # uses the first positions_per_band that pass its engine checks, so the reserve covers rejected (only-move) positions.
+  c2_reserve_factor: 2
+
+curriculum:
+  discount: 0.9
+  prior: [1.0, 1.0]
+
+profiles_dir: profiles

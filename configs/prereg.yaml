@@ -1,0 +1,89 @@
+# Pre-registered evaluation parameters, frozen 2026-10-27 before any evaluation run.
+# Changing a value after a run needs the human's approval and is reported as a deviation.
+version: 2
+frozen: "2026-10-27"
+revisions:
+  - date: "2026-10-27"
+    before_any_run: true
+    reason: >-
+      Kit audit: side-to-move perspective made explicit; C1 became a two-stage design with a pre-registered
+      epsilon rule; C2's primary metric became cross-band uplift with game-clustered bootstrap and a post-release
+      date window; C3 gained greedy and oracle policies, a game-sized observation model and gap closure as the
+      headline; entropy thresholds moved to configs/default.yaml (runtime). Design-stage C3 simulations used
+      seeds 0 to 2; confirmatory runs use seeds.global.
+
+game:
+  board_size: 19
+  rules: chinese
+  komi: 7.5
+
+engine:
+  max_visits: 200
+  min_candidate_visits_abs: 10
+  min_candidate_visits_frac: 0.05
+  winrate_perspective: SIDETOMOVE
+
+selector:
+  delta: 1.0e-6
+  temperature_eval: 0.0
+
+openings:
+  n_openings: 200              # may be lowered to >= 100 after the T0 benchmark, before any C1 game; log it above
+  pilot_n_openings: 20         # disjoint from the confirmatory openings
+  plies: 12
+
+adjudication:
+  decisive_winrate: 0.97
+  decisive_plies: 4
+  max_plies: 300
+  final_position_rule: score_lead_sign   # at max_plies or after two consecutive passes
+
+C1:
+  pilot_epsilons: [0.005, 0.01, 0.02]
+  pilot_games_each: 40         # pilot_n_openings x 2 colors, per epsilon
+  pilot_min_score: 0.35
+  n_games: 400                 # n_openings x 2 colors
+  bootstrap_resamples: 10000
+  ci: 0.95
+  success_max_cost_elo_upper: 150
+
+C2:
+  epsilon: c1_confirmatory     # epsilon* chosen by the C1 pilot rule
+  game_date_min: "2024-08-01"
+  bands:                       # weak to strong; the strongest band only serves as the comparison for the one below
+    - {name: "15k-10k", profile: rank_12k}
+    - {name: "9k-5k", profile: rank_7k}
+    - {name: "4k-1k", profile: rank_2k}
+    - {name: "1d-3d", profile: rank_2d}
+  positions_per_band: 500
+  max_positions_per_game: 5
+  ply_min: 20
+  ply_max: 200
+  min_admissible: 2
+  bootstrap_resamples: 10000
+  ci: 0.95
+
+C3:
+  n_learners: 50
+  n_topics: 8
+  weak_topics_per_learner: 2
+  p_weak: 0.40
+  p_base: 0.10
+  eta_target: 0.15
+  eta_transfer: 0.0375
+  sessions: 20
+  moves_per_session: 120
+  discount: 0.9
+  prior: [1.0, 1.0]
+  policies: [thompson, greedy_mean, round_robin, uniform_random, oracle]
+  identification_session: 10
+  bootstrap_resamples: 10000
+  ci: 0.95
+
+learner:
+  profile_grid: [rank_20k, rank_15k, rank_12k, rank_10k, rank_8k, rank_6k, rank_4k, rank_2k, rank_1d, rank_3d, rank_5d]
+  min_moves_for_estimate: 20
+  delta: 1.0e-6
+
+seeds:
+  global: 20261027

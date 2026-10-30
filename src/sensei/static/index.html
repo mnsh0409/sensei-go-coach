@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensei, a Go coach</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23d9a85a'/%3E%3Ccircle cx='12' cy='12' r='8' fill='%23222'/%3E%3Ccircle cx='20' cy='20' r='8' fill='%23f6f3ea' stroke='%23999'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f2efe9;
+  --surface: #ffffff;
+  --surface-2: #f7f5f0;
+  --ink: #22262a;
+  --ink-2: #454c53;
+  --muted: #646e78;
+  --line: #ddd7cc;
+  --line-strong: #c4bdb0;
+  --accent: #0b6e69;
+  --accent-strong: #08524e;
+  --accent-soft: #e1efed;
+  --radius: 12px;
+  --board-room: 150px;
+  --foot: 46px;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang TC",
+    "Microsoft JhengHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+[hidden] { display: none !important; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.app { height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+
+/* header */
+.topbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { margin: 0; font-size: 21px; letter-spacing: .01em; }
+.tagline { color: var(--muted); font-size: 13px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 7px; padding: 3px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 650; border: 1.5px solid var(--accent); white-space: nowrap;
+}
+.badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.badge-live { background: var(--accent); color: #fff; }
+.badge-fake { background: var(--accent-soft); color: var(--accent-strong); border-style: dashed; }
+.badge-replay { background: #2b3237; border-color: #2b3237; color: #fff; }
+.toolbar { margin-left: auto; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 2px; }
+.field label, .label {
+  font-size: 11.5px; color: var(--muted); font-weight: 650; text-transform: uppercase; letter-spacing: .05em;
+}
+input[type=text], select {
+  font: inherit; padding: 6px 9px; min-height: 36px; border: 1px solid var(--line-strong); border-radius: 8px;
+  background: #fff; color: var(--ink);
+}
+input[type=text] { width: 9.5em; }
+select { padding-right: 4px; }
+#rec-select { max-width: 270px; }
+.btn {
+  font: inherit; font-weight: 600; padding: 6px 14px; min-height: 36px; border-radius: 8px;
+  border: 1px solid var(--line-strong); background: #fff; color: var(--ink); cursor: pointer;
+}
+.btn:hover:not(:disabled) { background: var(--surface-2); border-color: #a79f90; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
+.btn-group { display: flex; gap: 6px; }
+.btn-group .btn { padding-left: 11px; padding-right: 11px; }
+
+/* layout */
+.layout {
+  display: grid; grid-template-columns: minmax(0, 1fr) clamp(380px, 44vw, 580px); grid-template-rows: minmax(0, 1fr);
+  gap: 20px; padding: 14px 20px 16px; min-height: 0; overflow: hidden;
+}
+.board-col { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; min-height: 0; container-type: size; }
+.board-box, .board-foot {
+  width: min(100%, calc(100vh - var(--board-room)));
+  width: min(100cqw, calc(100cqh - var(--foot) - 8px));
+}
+.board-box { position: relative; aspect-ratio: 1 / 1; }
+.board-box svg {
+  display: block; width: 100%; height: 100%; border-radius: 12px; touch-action: manipulation;
+  box-shadow: 0 2px 4px rgba(60, 40, 10, .18), 0 14px 30px rgba(60, 40, 10, .20);
+}
+.board-box svg.can-play { cursor: pointer; }
+.board-hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 70%; text-align: center;
+  background: rgba(255, 255, 255, .92); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 18px; font-weight: 600; pointer-events: none; box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
+}
+.board-foot { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-height: var(--foot); }
+.status { flex: 1 1 230px; min-width: 0; font-weight: 600; line-height: 1.35; }
+.status .status-sub { font-weight: 450; color: var(--muted); font-size: 13.5px; }
+body[data-mode="replay"] { --foot: 72px; }
+body[data-mode="replay"] .status { flex: 1 1 100%; }
+.coord-form { display: flex; align-items: center; gap: 6px; }
+.coord-form label { font-size: 12.5px; color: var(--muted); font-weight: 650; }
+.coord-form input[type=text] { width: 4.4em; text-transform: uppercase; }
+#rp-slider { flex: 1 1 200px; accent-color: var(--accent); }
+
+.panel { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; padding: 1px 2px 2px 1px; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 15px 11px;
+  box-shadow: 0 1px 2px rgba(34, 38, 42, .04);
+}
+.card h2 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; }
+.card-head h2 { margin: 0; }
+.card p { margin: 0; }
+.placeholder { color: var(--muted); }
+.fine { color: var(--muted); font-size: 12.5px; margin-top: 6px !important; }
+.dim { color: var(--muted); }
+
+.move-line { display: flex; align-items: center; gap: 9px; }
+.move-name { font-size: 18px; font-weight: 700; }
+.ply { margin-left: auto; min-width: 0; max-width: 60%; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dot { width: 17px; height: 17px; border-radius: 50%; flex: none; box-shadow: inset -2px -2px 4px rgba(0,0,0,.18); }
+.dot-B { background: radial-gradient(circle at 35% 30%, #666, #111 70%); }
+.dot-W { background: radial-gradient(circle at 35% 30%, #fff, #cfcbbd 90%); border: 1px solid #9a968a; }
+.stat-line { margin: 2px 0 8px !important; font-size: 13.5px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.explain { font-size: 15px; }
+
+#mistake-card.card-focus { border: 2px solid var(--accent); background: var(--accent-soft); padding: 11px 14px 12px; }
+#mistake-card.card-focus h2 { color: var(--accent-strong); }
+#mistake-card.card-focus .explain { font-size: 15.5px; }
+#mistake-card.card-quiet { padding: 8px 15px; background: var(--surface-2); }
+#mistake-card.card-quiet .card-head { display: none; }
+.chip-topic {
+  display: inline-block; padding: 0 9px; border-radius: 999px; background: #fff; border: 1px solid var(--accent);
+  color: var(--accent-strong); font-size: 12.5px; font-weight: 650; text-transform: none; letter-spacing: 0;
+}
+.legend { display: inline-block; width: 14px; height: 14px; border: 2px dashed var(--accent-strong); border-radius: 50%; vertical-align: -3px; }
+
+#ask-card { flex: 1 1 250px; min-height: 250px; display: flex; flex-direction: column; }
+#chat-log { flex: 1 1 auto; min-height: 70px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 2px 6px; }
+.msg { display: flex; flex-direction: column; max-width: 94%; }
+.msg-user { align-self: flex-end; align-items: flex-end; }
+.msg-sensei { align-self: flex-start; }
+.bubble { padding: 6px 11px; border-radius: 12px; overflow-wrap: anywhere; }
+.msg-user .bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.msg-sensei .bubble { background: var(--surface-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg-error .bubble { background: #fff; border: 1px dashed var(--ink-2); }
+.msg-pending .bubble { color: var(--muted); font-style: italic; }
+.msg-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.chip {
+  font: inherit; font-size: 13px; padding: 2px 10px; min-height: 28px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--accent); background: #fff; color: var(--accent-strong); font-weight: 600;
+}
+.chip:hover { background: var(--accent-soft); }
+.tools { font-size: 12.5px; color: var(--muted); }
+.tools summary { cursor: pointer; min-height: 28px; line-height: 28px; }
+.tools ul { margin: 4px 0 0; padding-left: 18px; }
+.ask-form { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
+.ask-row { display: flex; gap: 8px; }
+.ask-row input { flex: 1 1 auto; width: auto; min-width: 0; }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; }
+
+#toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: min(560px, 92vw); z-index: 10;
+  background: #2b3237; color: #fff; padding: 10px 16px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+
+dialog {
+  border: 0; border-radius: 16px; padding: 0; width: min(760px, 94vw); max-height: 92vh; color: var(--ink);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+}
+dialog::backdrop { background: rgba(24, 24, 22, .5); }
+.dialog-body { padding: 22px 26px 8px; max-height: calc(92vh - 76px); overflow-y: auto; }
+.dialog-body h2 { margin: 0 0 4px; font-size: 22px; }
+.dialog-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 26px 18px; border-top: 1px solid var(--line); }
+.sum-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+.sum-cell { padding: 8px 0 10px; border-top: 1px solid var(--line); min-width: 0; }
+.sum-cell h3 { margin: 0 0 3px; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.sum-cell p { margin: 0; }
+.sum-cell .big { font-size: 18px; font-weight: 700; line-height: 1.3; }
+.weak-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; margin-top: 6px; }
+.weak { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); }
+.weak-text { flex: 1 1 140px; min-width: 0; }
+.weak-text p { margin: 0 0 6px; }
+.weak h4 { margin: 0 0 2px; font-size: 15.5px; }
+.weak-board { flex: 0 0 150px; }
+.weak-board .fine { margin-top: 4px !important; font-size: 12px; }
+.weak .mini { width: 150px; display: block; border-radius: 6px; }
+
+@media (max-width: 1360px) {
+  .tagline { display: none; }
+}
+@media (max-width: 640px) {
+  .sum-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 980px) {
+  .app { height: auto; min-height: 100vh; display: block; }
+  .layout { display: block; padding: 12px 16px 24px; overflow: visible; }
+  .board-col { display: block; container-type: normal; }
+  .board-box, .board-foot { width: min(100%, 94vw); margin: 0 auto; }
+  .panel { margin-top: 14px; overflow: visible; }
+  #ask-card { min-height: 320px; }
+  .toolbar { margin-left: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .thinking::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: dots 1.2s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75%, 100% { content: "..."; } }
+}
+</style>
+</head>
+<body data-mode="__MODE__">
+<noscript><p style="padding:16px">Sensei needs JavaScript to draw the board.</p></noscript>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><h1>Sensei</h1><span class="tagline">a Go coach that teaches by playing</span></div>
+    <span id="mode-badge" class="badge badge-__MODE__" role="status">__MODE_LABEL__</span>
+
+    <div id="toolbar-play" class="toolbar">
+      <div class="field"><label for="player">Player</label>
+        <input id="player" type="text" maxlength="40" value="player" autocomplete="off" spellcheck="false"
+          title="Sensei keeps your progress under this name (letters, digits, - and _)"></div>
+      <div class="field"><label for="rank">Your rank</label><select id="rank"></select></div>
+      <button id="btn-new" class="btn btn-primary" type="button">New game</button>
+      <button id="btn-pass" class="btn" type="button" disabled>Pass</button>
+      <button id="btn-end" class="btn" type="button" disabled>End game</button>
+    </div>
+
+    <div id="toolbar-replay" class="toolbar" hidden>
+      <div class="field"><label for="rec-select">Recording</label><select id="rec-select"></select></div>
+      <div class="btn-group" role="group" aria-label="Replay controls">
+        <button id="rp-first" class="btn" type="button">Start</button>
+        <button id="rp-back" class="btn" type="button">Back</button>
+        <button id="rp-next" class="btn" type="button">Forward</button>
+        <button id="rp-last" class="btn" type="button">End</button>
+        <button id="rp-play" class="btn btn-primary" type="button">Play</button>
+      </div>
+      <div class="field"><label for="rp-speed">Speed</label>
+        <select id="rp-speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option>
+          <option value="2">2x</option><option value="4">4x</option></select></div>
+      <button id="rp-summary" class="btn" type="button" hidden>Summary</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="board-col" aria-label="Board">
+      <div id="board" class="board-box">
+        <div id="board-hint" class="board-hint" hidden></div>
+      </div>
+      <div class="board-foot">
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+        <form id="coord-form" class="coord-form" autocomplete="off">
+          <label for="coord">Play at</label>
+          <input id="coord" type="text" maxlength="4" placeholder="D4" spellcheck="false" disabled>
+          <button id="btn-coord" class="btn" type="submit" disabled>Play</button>
+        </form>
+        <input id="rp-slider" type="range" min="0" max="0" value="0" aria-label="Move number" hidden>
+        <button id="btn-clear-var" class="btn" type="button" hidden>Clear variation</button>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Coaching">
+      <section id="sensei-card" class="card" aria-labelledby="sensei-h">
+        <h2 id="sensei-h" class="sr-only">Sensei's move</h2>
+        <div id="sensei-body" aria-live="polite"></div>
+      </section>
+      <section id="mistake-card" class="card" aria-labelledby="mistake-h" hidden>
+        <div class="card-head"><h2 id="mistake-h">Your move</h2><span id="mistake-chip" class="chip-topic" hidden></span></div>
+        <div id="mistake-body" aria-live="polite"></div>
+      </section>
+      <section id="ask-card" class="card" aria-labelledby="ask-h">
+        <h2 id="ask-h">Ask Sensei</h2>
+        <div id="chat-log" role="log" aria-live="polite" aria-label="Conversation with Sensei"></div>
+        <form id="ask-form" class="ask-form" autocomplete="off">
+          <label class="label" for="ask-input">Your question about this position</label>
+          <div class="ask-row">
+            <input id="ask-input" type="text" maxlength="600" placeholder="Why not D4? What if I cut here?" disabled>
+            <button id="btn-ask" class="btn btn-primary" type="submit" disabled>Ask</button>
+          </div>
+          <div id="quick" class="quick"></div>
+        </form>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<dialog id="summary" aria-labelledby="summary-h">
+  <div class="dialog-body"><h2 id="summary-h">Game summary</h2><div id="summary-body"></div></div>
+  <div class="dialog-foot">
+    <button id="summary-new" class="btn btn-primary" type="button">New game</button>
+    <button id="summary-close" class="btn" type="button">Close</button>
+  </div>
+</dialog>
+<div id="toast" role="alert" hidden></div>
+
+<script>
+(() => {
+'use strict';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const COLS = 'ABCDEFGHJKLMNOPQRST';
+const N = 19, CELL = 40, PAD = 44;
+const SIZE = PAD * 2 + CELL * (N - 1);
+const STARS = ['D4', 'K4', 'Q4', 'D10', 'K10', 'Q10', 'D16', 'K16', 'Q16'];
+const MODE = document.body.dataset.mode;
+const MODE_NAMES = { live: 'live', fake: 'demo (fake engine)', replay: 'replay' };
+
+/* ---------- small helpers ---------- */
+function build(node, props, kids) {
+  for (const [key, value] of Object.entries(props || {})) {
+    if (value === null || value === undefined || value === false) continue;
+    if (key === 'text') node.textContent = value;
+    else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+    else node.setAttribute(key, value === true ? '' : String(value));
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    node.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return node;
+}
+const h = (tag, props, ...kids) => build(document.createElement(tag), props, kids);
+const s = (tag, props, ...kids) => build(document.createElementNS(SVG_NS, tag), props, kids);
+const $ = (id) => document.getElementById(id);
+const other = (c) => (c === 'B' ? 'W' : 'B');
+const pct = (x) => `${Number(x).toFixed(1)}%`;
+const prettyTopic = (t) => String(t || '').replace(/_/g, ' ');
+const hasTopic = (t) => t && t !== 'untagged';
+
+function point(move, cell = CELL, pad = PAD) {
+  if (!move || move === 'pass') return null;
+  const col = COLS.indexOf(move[0]);
+  const row = N - parseInt(move.slice(1), 10);
+  if (col < 0 || !(row >= 0 && row < N)) return null;
+  return [pad + col * cell, pad + row * cell];
+}
+
+function storeGet(key, fallback) {
+  try { return localStorage.getItem(key) ?? fallback; } catch (_) { return fallback; }
+}
+function storeSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (_) { /* storage may be blocked */ }
+}
+
+async function api(path, { method = 'GET', body } = {}) {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch (_) { /* no JSON body */ }
+  if (!res.ok) {
+    const detail = data && data.detail;
+    const message = typeof detail === 'string' ? detail
+      : Array.isArray(detail) ? detail.map((d) => d.msg).join('; ') : `The request failed (${res.status}).`;
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
+  }
+  return data;
+}
+
+let toastTimer = null;
+function toast(message) {
+  const el = $('toast');
+  el.textContent = message;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 7000);
+}
+
+/* ---------- the board ---------- */
+const Board = (() => {
+  const svg = s('svg', {
+    viewBox: `0 0 ${SIZE} ${SIZE}`, role: 'img',
+    'aria-label': 'Go board, 19 by 19. Columns A to T without I, rows 1 to 19 from the bottom.',
+  });
+  svg.append(
+    s('defs', {},
+      s('linearGradient', { id: 'wood', x1: 0, y1: 0, x2: 1, y2: 1 },
+        s('stop', { offset: '0%', 'stop-color': '#e7c27c' }), s('stop', { offset: '100%', 'stop-color': '#d2a14f' })),
+      s('radialGradient', { id: 'stoneB', cx: '35%', cy: '30%', r: '75%' },
+        s('stop', { offset: '0%', 'stop-color': '#6d6d6d' }), s('stop', { offset: '45%', 'stop-color': '#2a2a2a' }),
+        s('stop', { offset: '100%', 'stop-color': '#050505' })),
+      s('radialGradient', { id: 'stoneW', cx: '35%', cy: '30%', r: '80%' },
+        s('stop', { offset: '0%', 'stop-color': '#ffffff' }), s('stop', { offset: '60%', 'stop-color': '#f1efe7' }),
+        s('stop', { offset: '100%', 'stop-color': '#c7c3b5' }))));
+
+  const wood = s('g');
+  wood.append(s('rect', { width: SIZE, height: SIZE, rx: 12, fill: 'url(#wood)' }));
+  let seed = 11;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const grain = s('g', { opacity: 0.085, fill: 'none', stroke: '#6b4311', 'stroke-linecap': 'round' });
+  for (let i = 0; i < 28; i++) {
+    const y = ((i + rnd()) * SIZE) / 28, amp = 3 + rnd() * 11;
+    grain.append(s('path', {
+      d: `M0 ${y.toFixed(1)} C ${SIZE * 0.3} ${(y + amp).toFixed(1)}, ${SIZE * 0.62} ${(y - amp).toFixed(1)}, ${SIZE} ${(y + amp / 2).toFixed(1)}`,
+      'stroke-width': (0.8 + rnd() * 2.4).toFixed(1),
+    }));
+  }
+  wood.append(grain, s('rect', { x: 1.5, y: 1.5, width: SIZE - 3, height: SIZE - 3, rx: 11, fill: 'none',
+    stroke: '#8a5c1e', 'stroke-opacity': 0.5, 'stroke-width': 3 }));
+
+  const lines = s('g', { stroke: '#4c3611' });
+  const a = PAD, b = PAD + (N - 1) * CELL;
+  for (let i = 0; i < N; i++) {
+    const p = PAD + i * CELL, w = i === 0 || i === N - 1 ? 1.9 : 1.2;
+    lines.append(s('line', { x1: a, y1: p, x2: b, y2: p, 'stroke-width': w }),
+      s('line', { x1: p, y1: a, x2: p, y2: b, 'stroke-width': w }));
+  }
+  const stars = s('g', { fill: '#4c3611' });
+  for (const m of STARS) { const [x, y] = point(m); stars.append(s('circle', { cx: x, cy: y, r: 4.3 })); }
+
+  const labels = s('g', { fill: '#5b4417', 'font-size': 15, 'font-weight': 650, 'text-anchor': 'middle',
+    'dominant-baseline': 'central', 'aria-hidden': 'true' });
+  for (let i = 0; i < N; i++) {
+    const p = PAD + i * CELL, row = String(N - i);
+    labels.append(s('text', { x: p, y: 17, text: COLS[i] }), s('text', { x: p, y: SIZE - 17, text: COLS[i] }),
+      s('text', { x: 17, y: p, text: row }), s('text', { x: SIZE - 17, y: p, text: row }));
+  }
+
+  const gStones = s('g'), gBest = s('g'), gLast = s('g'), gVar = s('g'), gGhost = s('g');
+  svg.append(wood, lines, stars, labels, gStones, gBest, gLast, gVar, gGhost);
+  $('board').prepend(svg);
+
+  function stone(move, color, opacity = 1) {
+    const [x, y] = point(move);
+    return s('g', { opacity },
+      s('circle', { cx: x + 1.8, cy: y + 2.7, r: 18.6, fill: 'rgba(45, 28, 6, .30)' }),
+      s('circle', { cx: x, cy: y, r: 18.8, fill: color === 'B' ? 'url(#stoneB)' : 'url(#stoneW)',
+        stroke: color === 'B' ? '#000' : '#8b877a', 'stroke-width': 0.8 }));
+  }
+
+  function render(view) {
+    gStones.replaceChildren(...Object.entries(view.board || {}).map(([m, c]) => stone(m, c)));
+    if (view.pending) gStones.append(stone(view.pending.move, view.pending.color, 0.9));
+    gLast.replaceChildren();
+    const last = view.pending || view.last;
+    if (last && last.move && last.move !== 'pass') {
+      const [x, y] = point(last.move);
+      gLast.append(s('circle', { cx: x, cy: y, r: 9.5, fill: 'none', 'stroke-width': 3.2,
+        stroke: last.color === 'B' ? '#7fe6db' : '#0b6e69' }));
+    }
+    gBest.replaceChildren();
+    const best = view.best && point(view.best);
+    if (best) {
+      gBest.append(s('circle', { cx: best[0], cy: best[1], r: 16.5, fill: 'rgba(255,255,255,.18)', stroke: '#08524e',
+        'stroke-width': 3, 'stroke-dasharray': '6 4' }));
+    }
+    gVar.replaceChildren();
+    if (view.variation) {
+      view.variation.moves.forEach((m, i) => {
+        const p = point(m);
+        if (!p) return;
+        const color = i % 2 === 0 ? view.variation.first : other(view.variation.first);
+        gVar.append(s('g', {},
+          s('circle', { cx: p[0], cy: p[1], r: 18, 'fill-opacity': 0.8, 'stroke-width': 1.3,
+            fill: color === 'B' ? '#161616' : '#fbfaf5', stroke: color === 'B' ? '#000' : '#6b675b' }),
+          s('text', { x: p[0], y: p[1] + 0.5, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+            'font-size': 19, 'font-weight': 700, fill: color === 'B' ? '#ffffff' : '#161616', text: String(i + 1) })));
+      });
+    }
+  }
+
+  function ghost(move, color) {
+    gGhost.replaceChildren();
+    if (move) gGhost.append(stone(move, color, 0.45));
+  }
+
+  function pointAt(ev) {
+    const r = svg.getBoundingClientRect();
+    const x = ((ev.clientX - r.left) * SIZE) / r.width, y = ((ev.clientY - r.top) * SIZE) / r.height;
+    const col = Math.round((x - PAD) / CELL), row = Math.round((y - PAD) / CELL);
+    if (col < 0 || col >= N || row < 0 || row >= N) return null;
+    if (Math.hypot(x - (PAD + col * CELL), y - (PAD + row * CELL)) > CELL * 0.62) return null;
+    return COLS[col] + (N - row);
+  }
+
+  return { svg, render, ghost, pointAt };
+})();
+
+/* ---------- application state ---------- */
+const app = {
+  info: null, learnerId: '', state: null, summary: null, sensei: null, report: null,
+  chat: [], busy: false, busyText: '', pending: null, variation: null, best: null,
+  rep: null,
+};
+
+function currentView() {
+  if (MODE === 'replay') {
+    const rep = app.rep;
+    if (!rep || !rep.rec) return { board: {}, last: null, variation: app.variation };
+    const frame = rep.frames[rep.step];
+    return { board: frame.board, last: frame.last, variation: app.variation, best: app.best };
+  }
+  const st = app.state;
+  return { board: st ? st.board : {}, last: st ? st.last_move : null, pending: app.pending, best: app.best,
+    variation: app.variation };
+}
+const draw = () => Board.render(currentView());
+
+function canPlay() {
+  const st = app.state;
+  return MODE !== 'replay' && !!st && st.your_turn && !app.busy;
+}
+
+function setBusy(on, text = '') {
+  app.busy = on;
+  app.busyText = text;
+  document.querySelector('main').setAttribute('aria-busy', on ? 'true' : 'false');
+  renderStatus();
+  updateControls();
+}
+
+function showVariation(moves, firstColor) {
+  app.variation = { moves, first: firstColor };
+  $('btn-clear-var').hidden = false;
+  draw();
+}
+function clearVariation() {
+  app.variation = null;
+  $('btn-clear-var').hidden = true;
+  draw();
+}
+
+/* ---------- status and controls ---------- */
+function captureText(st) {
+  if (!st || !st.captured) return '';
+  return ` Captures: you ${st.captured[st.learner_color]}, Sensei ${st.captured[other(st.learner_color)]}.`;
+}
+
+function renderStatus() {
+  const el = $('status');
+  const hint = $('board-hint');
+  hint.hidden = true;
+  const two = (main, sub) => el.replaceChildren(h('div', { text: main }), h('div', { class: 'status-sub', text: sub || ' ' }));
+  if (MODE === 'replay') {
+    const rep = app.rep;
+    if (!rep || !rep.rec) {
+      two(rep && rep.list.length === 0 ? 'No recordings found.' : 'Loading the recording...', '');
+      return;
+    }
+    const rec = rep.rec;
+    const total = rep.frames.length - 1;
+    const who = rec.learner_id ? `${rec.learner_id}, ${rec.declared_rank}` : 'recorded game';
+    const recorded = rec.mode === 'live' ? 'recorded live' : `recorded in ${MODE_NAMES[rec.mode] || rec.mode || 'unknown'} mode`;
+    const frame = rep.frames[rep.step];
+    const caps = captureText({ captured: frame.captured, learner_color: rec.learner_color || 'B' });
+    el.replaceChildren(`Move ${rep.step} of ${total}`, h('span', { class: 'status-sub', text: ` \u00b7 ${who}, ${recorded}.${caps}` }));
+    return;
+  }
+  const st = app.state;
+  if (app.busy) {
+    el.replaceChildren(h('div', { class: 'thinking', text: app.busyText || 'Working' }), h('div', { class: 'status-sub', text: ' ' }));
+    return;
+  }
+  if (!st) {
+    two('Choose your rank, then press New game.', '');
+    const info = app.info;
+    const rules = info && info.rules ? `${info.rules[0].toUpperCase()}${info.rules.slice(1)} rules, komi ${info.komi}` : '';
+    hint.textContent = `Choose your rank above and press New game. You play Black and move first.${rules ? ` 19x19 board, ${rules}.` : ''}`;
+    hint.hidden = false;
+    return;
+  }
+  let main = '';
+  if (st.ended) main = 'The game has ended.';
+  else if (st.game_over) main = 'Both players passed. Press End game to see your summary.';
+  else if (st.awaiting_sensei) main = 'Sensei did not reply. Press New game to start again.';
+  else if (st.your_turn) main = 'Your move. You play Black.';
+  two(main, `${st.move_number ? `Move ${st.move_number}.` : 'No moves yet.'}${captureText(st)}`);
+}
+
+function updateControls() {
+  const st = app.state;
+  const open = !!st && !st.ended;
+  const busy = app.busy;
+  if (MODE !== 'replay') {
+    $('btn-new').disabled = busy;
+    $('btn-pass').disabled = busy || !(st && st.your_turn);
+    $('btn-end').disabled = busy || !st;
+    $('btn-end').textContent = st && st.ended ? 'Show summary' : 'End game';
+    const playable = !busy && !!st && st.your_turn;
+    $('coord').disabled = !playable;
+    $('btn-coord').disabled = !playable;
+    $('ask-input').disabled = busy || !open;
+    $('btn-ask').disabled = busy || !open;
+    for (const b of document.querySelectorAll('#quick .chip')) b.disabled = busy || !open;
+    Board.svg.classList.toggle('can-play', playable);
+  } else {
+    const rep = app.rep;
+    const loaded = !!(rep && rep.rec);
+    const last = loaded ? rep.frames.length - 1 : 0;
+    $('rp-first').disabled = !loaded || rep.step === 0;
+    $('rp-back').disabled = !loaded || rep.step === 0;
+    $('rp-next').disabled = !loaded || rep.step >= last;
+    $('rp-last').disabled = !loaded || rep.step >= last;
+    $('rp-play').disabled = !loaded || last === 0;
+    $('rp-play').textContent = rep && rep.playing ? 'Pause' : 'Play';
+    $('rp-slider').max = String(last);
+    $('rp-slider').value = String(loaded ? rep.step : 0);
+    $('rp-slider').disabled = !loaded;
+    $('rp-summary').hidden = !(loaded && rep.rec.summary);
+  }
+}
+
+/* ---------- cards ---------- */
+function renderSensei(entry) {
+  const body = $('sensei-body');
+  if (!entry) {
+    body.replaceChildren(h('p', { class: 'placeholder', text: MODE === 'replay'
+      ? 'Step forward to see why Sensei chose each move.'
+      : 'After each of its moves Sensei shows the move, why it chose it, what it cost and what kind of position it was.' }));
+    return;
+  }
+  const pass = entry.move === 'pass';
+  const t = entry.timing_ms || {};
+  const timing = [];
+  if (t.engine_ms !== undefined) timing.push(`engine ${Math.round(t.engine_ms)} ms`);
+  if (t.human_policy_ms !== undefined) timing.push(`learner model ${Math.round(t.human_policy_ms)} ms`);
+  if (t.explanation_ms !== undefined) timing.push(`explanation ${(t.explanation_ms / 1000).toFixed(1)} s`);
+  body.replaceChildren(
+    h('div', { class: 'move-line' }, h('span', { class: 'dot dot-W', 'aria-hidden': 'true' }),
+      h('span', { class: 'move-name', text: pass ? 'Sensei passed' : `Sensei played ${entry.move}` }),
+      h('span', { class: 'ply', title: timing.join(', '), text: `${entry.model} \u00b7 move ${entry.ply}` })),
+    h('p', { class: 'stat-line' },
+      `cost: ${pct(entry.value_loss_pct)} winrate, position: ${String(entry.position_class).replace('_', '-')}`,
+      h('span', { class: 'dim', text: `, ${entry.n_admissible} admissible` })),
+    h('p', { class: 'explain', text: entry.explanation }));
+}
+
+function renderMistake(report, focusTopic) {
+  const card = $('mistake-card');
+  const body = $('mistake-body');
+  const chip = $('mistake-chip');
+  if (!report) { card.hidden = true; card.className = 'card'; return; }
+  card.hidden = false;
+  const loss = pct(report.loss_pct);
+  const moveName = report.move === 'pass' ? 'Your pass' : `Your move ${report.move}`;
+  if (!report.is_mistake) {
+    card.className = 'card card-quiet';
+    body.replaceChildren(h('p', { class: 'dim' }, `${moveName}: cost ${loss} winrate, not a mistake.`));
+    return;
+  }
+  const severity = report.severity ? ` (${report.severity})` : '';
+  const topic = hasTopic(report.topic) ? prettyTopic(report.topic) : null;
+  chip.hidden = !topic;
+  chip.textContent = topic || '';
+  const head = h('strong', { text: `${moveName} cost ${loss} winrate${severity}.` });
+  const ring = h('span', { class: 'legend', role: 'img', 'aria-label': 'dashed ring', title: 'dashed ring on the board' });
+  if (report.explanation) {
+    card.className = 'card card-focus';
+    $('mistake-h').textContent = topic ? 'Mistake in your focus topic' : 'Mistake';
+    body.replaceChildren(
+      h('p', { class: 'stat-line' }, head, ' The engine preferred ', h('strong', { text: report.best_move }), ' ', ring, '.'),
+      h('p', { class: 'explain', text: report.explanation }));
+  } else {
+    card.className = 'card';
+    $('mistake-h').textContent = 'Mistake logged';
+    const focus = hasTopic(focusTopic) ? ` Sensei explains mistakes in your focus topic, ${prettyTopic(focusTopic)}, right away.` : '';
+    body.replaceChildren(h('p', {}, head, ' The engine preferred ', h('strong', { text: report.best_move }), ' ', ring, '.',
+      focus, ' It will appear in your summary.'));
+  }
+}
+
+function toolLabel(call) {
+  const args = call.arguments;
+  let shown = '';
+  if (args && typeof args === 'object') {
+    shown = Object.entries(args).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(' ') : v}`).join(', ');
+  } else if (args) shown = String(args);
+  return `${call.name}(${shown})${call.error ? ` -> ${call.error}` : ''}`;
+}
+
+function messageEl(m) {
+  if (m.role === 'user') return h('div', { class: 'msg msg-user' }, h('div', { class: 'bubble', text: m.text }));
+  const extra = [];
+  (m.variations || []).forEach((v) => extra.push(h('button', { class: 'chip', type: 'button',
+    'aria-label': `Draw the variation ${v.join(' ')} on the board`,
+    onclick: () => showVariation(v, m.to_move || (app.state ? app.state.to_move : 'B')) }, `Draw: ${v.join(' ')}`)));
+  if (m.tools && m.tools.length) {
+    extra.push(h('details', { class: 'tools' }, h('summary', { text: `Engine tools (${m.tools.length})` }),
+      h('ul', {}, m.tools.map((c) => h('li', { text: toolLabel(c) })), m.model ? h('li', { text: `answered by ${m.model}` }) : null)));
+  }
+  const cls = `msg msg-sensei${m.pending ? ' msg-pending' : ''}${m.error ? ' msg-error' : ''}`;
+  return h('div', { class: cls },
+    h('div', { class: 'bubble', text: m.text, title: m.model ? `answered by ${m.model}` : null }),
+    extra.length ? h('div', { class: 'msg-extra' }, extra) : null);
+}
+
+function renderChat() {
+  const log = $('chat-log');
+  renderQuick();
+  if (!app.chat.length) {
+    log.replaceChildren(h('p', { class: 'placeholder', text: MODE === 'replay'
+      ? 'Questions asked during the game appear here when you reach them.'
+      : 'Ask about the position, for example "Why not D4?" or "What happens if I cut here?". Any line Sensei shows is drawn on the board.' }));
+    return;
+  }
+  log.style.paddingBottom = '';
+  log.replaceChildren(...app.chat.map(messageEl));
+  const asked = log.querySelectorAll('.msg-user');
+  const answers = log.querySelectorAll('.msg-sensei');
+  const lastAsked = asked[asked.length - 1];
+  const lastAnswer = answers[answers.length - 1];
+  if (!lastAsked || !lastAnswer) return;
+  // The latest exchange stays in view: at the bottom when it fits, otherwise its answer starts at the top.
+  const here = log.getBoundingClientRect().top - log.scrollTop;
+  const askTop = lastAsked.getBoundingClientRect().top - here;
+  const answerTop = lastAnswer.getBoundingClientRect().top - here;
+  if (answerTop + lastAnswer.offsetHeight - askTop <= log.clientHeight) {
+    log.scrollTop = log.scrollHeight;
+  } else {
+    const target = Math.max(0, answerTop - 2);
+    const missing = target + log.clientHeight - log.scrollHeight;
+    if (missing > 0) log.style.paddingBottom = `${6 + missing}px`;
+    log.scrollTop = target;
+  }
+}
+
+function renderQuick() {
+  const box = $('quick');
+  box.replaceChildren();
+  box.hidden = MODE === 'replay' || app.chat.length > 0;
+  if (box.hidden) return;
+  const board = (app.state && app.state.board) || {};
+  const free = STARS.find((m) => !board[m]) || 'K10';
+  const prompts = ['What is the best move here?', `Why not ${free}?`, 'How am I doing?'];
+  for (const q of prompts) box.append(h('button', { class: 'chip', type: 'button', onclick: () => sendQuestion(q) }, q));
+}
+
+function renderAll() {
+  renderStatus();
+  updateControls();
+  renderSensei(app.sensei);
+  renderMistake(app.report, app.state && app.state.profile && app.state.profile.target_topic);
+  renderChat();
+  updateControls();
+  draw();
+}
+
+/* ---------- live play ---------- */
+function sanitizeId(text) {
+  const id = String(text || '').trim();
+  return /^[A-Za-z0-9_-]{1,40}$/.test(id) ? id : null;
+}
+
+function adoptHistory(st) {
+  const history = st.history || [];
+  const latest = (kind) => [...history].reverse().find((e) => e.kind === kind) || null;
+  app.sensei = latest('sensei');
+  app.report = latest('learner');
+  app.best = app.report && app.report.is_mistake && st.last_move && app.report.ply >= st.move_number - 1
+    ? app.report.best_move : null;
+  app.chat = [];
+  for (const e of history.filter((x) => x.kind === 'ask')) {
+    app.chat.push({ role: 'user', text: e.question });
+    app.chat.push({ role: 'sensei', text: e.text, variations: e.variations, tools: e.tool_calls, model: e.model, to_move: e.to_move });
+  }
+}
+
+async function newGame() {
+  const id = sanitizeId($('player').value);
+  if (!id) { toast('The player name may use letters, digits, "_" and "-" (up to 40 characters).'); return; }
+  storeSet('sensei.player', id);
+  storeSet('sensei.rank', $('rank').value);
+  storeSet('sensei.active', id);
+  setBusy(true, 'Starting a new game');
+  try {
+    const st = await api('/api/game', { method: 'POST', body: { learner_id: id, rank: $('rank').value } });
+    Object.assign(app, { learnerId: id, state: st, summary: null, sensei: null, report: null, chat: [], pending: null,
+      variation: null, best: null });
+    $('btn-clear-var').hidden = true;
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    setBusy(false);
+    renderAll();
+  }
+}
+
+async function refreshState() {
+  if (!app.learnerId) return;
+  try {
+    const st = await api(`/api/state?learner_id=${encodeURIComponent(app.learnerId)}`);
+    app.state = st;
+    adoptHistory(st);
+  } catch (_) { /* keep what is on screen */ }
+}
+
+async function playMove(move) {
+  if (!canPlay()) return;
+  const color = app.state.learner_color;
+  app.pending = move === 'pass' ? null : { move, color };
+  app.variation = null; app.best = null;
+  $('btn-clear-var').hidden = true;
+  Board.ghost(null);
+  setBusy(true, 'Sensei is thinking');
+  draw();
+  try {
+    const path = move === 'pass' ? '/api/pass' : '/api/move';
+    const body = move === 'pass' ? { learner_id: app.learnerId } : { learner_id: app.learnerId, move };
+    const res = await api(path, { method: 'POST', body });
+    app.pending = null;
+    app.state = res.state;
+    app.report = res.report;
+    if (res.sensei) app.sensei = res.sensei;
+    app.best = res.report.is_mistake ? res.report.best_move : null;
+  } catch (e) {
+    app.pending = null;
+    toast(e.message);
+    await refreshState();
+  } finally {
+    setBusy(false);
+    renderAll();
+  }
+}
+
+async function sendQuestion(text) {
+  const question = String(text || '').trim();
+  if (!question || !app.state || app.state.ended || app.busy) return;
+  const answer = { role: 'sensei', text: 'Checking the engine', pending: true };
+  app.chat.push({ role: 'user', text: question }, answer);
+  renderChat();
+  setBusy(true, 'Sensei is asking the engine');
+  try {
+    const res = await api('/api/ask', { method: 'POST', body: { learner_id: app.learnerId, question } });
+    Object.assign(answer, { text: res.text, pending: false, variations: res.variations, tools: res.tool_calls,
+      model: res.model, to_move: res.to_move });
+    if (res.variations.length) showVariation(res.variations[res.variations.length - 1], res.to_move);
+  } catch (e) {
+    Object.assign(answer, { text: `Sensei could not answer: ${e.message}`, pending: false, error: true });
+  } finally {
+    setBusy(false);
+    renderChat();
+  }
+}
+
+async function endGame() {
+  if (app.summary) { openSummary(app.summary); return; }
+  if (!app.state) return;
+  setBusy(true, 'Scoring the game and estimating your rank');
+  try {
+    app.summary = await api('/api/end', { method: 'POST', body: { learner_id: app.learnerId } });
+    app.state = { ...app.state, ended: true, your_turn: false, awaiting_sensei: false };
+    openSummary(app.summary);
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    setBusy(false);
+    renderAll();
+  }
+}
+
+/* ---------- summary ---------- */
+function miniBoard(ex) {
+  const C = 11, P = 12, S = P * 2 + C * (N - 1);
+  const svg = s('svg', { viewBox: `0 0 ${S} ${S}`, class: 'mini', role: 'img',
+    'aria-label': `Board before move ${ex.move_number}: you played ${ex.played}, the engine preferred ${ex.best}` });
+  svg.append(s('rect', { width: S, height: S, rx: 6, fill: 'url(#wood)' }));
+  const lines = s('g', { stroke: '#4c3611', 'stroke-width': 0.6 });
+  for (let i = 0; i < N; i++) {
+    const p = P + i * C;
+    lines.append(s('line', { x1: P, y1: p, x2: P + (N - 1) * C, y2: p }), s('line', { x1: p, y1: P, x2: p, y2: P + (N - 1) * C }));
+  }
+  svg.append(lines);
+  for (const [m, c] of Object.entries(ex.board || {})) {
+    const [x, y] = point(m, C, P);
+    svg.append(s('circle', { cx: x, cy: y, r: 4.9, fill: c === 'B' ? 'url(#stoneB)' : 'url(#stoneW)',
+      stroke: c === 'B' ? '#000' : '#8b877a', 'stroke-width': 0.4 }));
+  }
+  const played = point(ex.played, C, P), best = point(ex.best, C, P);
+  if (played) {
+    svg.append(s('circle', { cx: played[0], cy: played[1], r: 4.9, fill: 'url(#stoneB)', 'fill-opacity': 0.6 }),
+      s('circle', { cx: played[0], cy: played[1], r: 7.2, fill: 'none', stroke: '#22262a', 'stroke-width': 1.6 }));
+  }
+  if (best) {
+    svg.append(s('circle', { cx: best[0], cy: best[1], r: 7.2, fill: 'none', stroke: '#08524e', 'stroke-width': 1.8,
+      'stroke-dasharray': '3 2' }));
+  }
+  return svg;
+}
+
+function count(n, one, many) { return `${n} ${n === 1 ? one : many}`; }
+
+function buildSummary(sum) {
+  const r = sum.result || {};
+  const lead = Math.abs(Number(r.black_lead));
+  const winner = r.winner === 'B' ? 'Black' : 'White';
+  const resultText = `${r.learner_won ? 'You won' : 'Sensei won'}. ${winner} leads by ${lead.toFixed(1)} points.`;
+  const rules = app.info && app.info.rules ? `${app.info.rules[0].toUpperCase()}${app.info.rules.slice(1)} rules` : 'Area scoring';
+  const komi = app.info && app.info.komi !== undefined ? `, komi ${app.info.komi}` : '';
+  const rank = sum.rank || {};
+  const rankBig = rank.declared_only ? `${sum.declared_rank} (declared)` : `${rank.label} ± ${Number(rank.sd).toFixed(1)}`;
+  const rankLine = rank.declared_only
+    ? `Not enough moves for an estimate yet: it needs ${rank.min_moves} of your moves, and this game had ${count(rank.n_moves, 'move', 'moves')}.`
+    : `Estimated from ${count(rank.n_moves, 'move', 'moves')} of yours; the second number is the uncertainty in ranks.`;
+  const weak = sum.weakest_topics || [];
+  const fitted = !app.info || app.info.topics_fitted;
+  const weakBlock = weak.length
+    ? h('div', { class: 'weak-grid' }, weak.map((t) => {
+      const ex = t.example;
+      return h('div', { class: 'weak' },
+        h('div', { class: 'weak-text' },
+          h('h4', { text: prettyTopic(t.topic) }),
+          h('p', { class: 'dim', text: t.mistakes
+            ? `${count(t.mistakes, 'mistake', 'mistakes')} in ${count(t.moves, 'move', 'moves')}` : `No mistakes in ${count(t.moves, 'move', 'moves')}` }),
+          ex ? h('p', {}, `Example, move ${ex.move_number}: you played ${ex.played}; the engine preferred ${ex.best} (cost ${pct(100 * ex.loss)}, ${ex.severity}).`)
+            : null),
+        ex && ex.board ? h('div', { class: 'weak-board' }, miniBoard(ex),
+          h('p', { class: 'fine', text: 'Solid ring: your move. Dashed ring: the engine\u2019s choice.' })) : null);
+    }))
+    : h('p', { class: 'dim', text: fitted
+      ? 'No topic has three or more of your moves yet, so no weakness stands out.'
+      : 'Mistakes are not grouped into topics yet: the topic model has not been fitted.' });
+  const cell = (title, ...kids) => h('div', { class: 'sum-cell' }, h('h3', { text: title }), ...kids);
+  return h('div', {},
+    h('div', { class: 'sum-grid' },
+      cell('Result', h('p', { class: 'big', text: resultText }),
+        h('p', { class: 'fine', text: `From the engine’s score lead at the final position (${rules}${komi}).` })),
+      cell('Rank estimate', h('p', { class: 'big', text: rankBig }), h('p', { class: 'fine', text: rankLine })),
+      cell('This game', h('p', { text: `${count(sum.mistakes_this_game, 'mistake', 'mistakes')} in ${sum.moves_this_game} of your moves.` })),
+      cell('Next game’s target', h('p', { class: 'big', text: hasTopic(sum.next_target) ? prettyTopic(sum.next_target) : 'No topic yet' }),
+        hasTopic(sum.next_target) ? h('p', { class: 'fine', text: 'Sensei explains your mistakes in this topic right away.' }) : null)),
+    h('div', { class: 'sum-cell' }, h('h3', { text: 'Top weakness topics' }), weakBlock));
+}
+
+function openSummary(sum) {
+  $('summary-body').replaceChildren(buildSummary(sum));
+  $('summary-new').hidden = MODE === 'replay';
+  const dialog = $('summary');
+  if (!dialog.open) { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute('open', ''); }
+}
+
+/* ---------- replay ---------- */
+function buildFrames(rec) {
+  const frames = [{ board: {}, last: null, captured: { B: 0, W: 0 } }];
+  let board = {};
+  const captured = { B: 0, W: 0 };
+  rec.moves.forEach((m) => {
+    board = { ...board };
+    if (m.move !== 'pass') board[m.move] = m.color;
+    for (const c of m.captured || []) delete board[c];
+    captured[m.color] += (m.captured || []).length;
+    frames.push({ board, last: { move: m.move, color: m.color, ply: m.ply }, captured: { ...captured } });
+  });
+  return frames;
+}
+
+function latestUpTo(list, step) {
+  let found = null;
+  for (const e of list) if (e.ply <= step) found = e; else break;
+  return found;
+}
+
+function renderReplay() {
+  const rep = app.rep;
+  if (!rep || !rep.rec) { renderSensei(null); renderMistake(null); renderChat(); renderStatus(); updateControls(); draw(); return; }
+  const step = rep.step;
+  renderSensei(latestUpTo(rep.rec.sensei_moves, step));
+  const report = latestUpTo(rep.rec.reports, step);
+  renderMistake(report, null);
+  const visible = rep.rec.asks.filter((a) => a.ply <= step);
+  app.chat = visible.flatMap((a) => [{ role: 'user', text: a.question },
+    { role: 'sensei', text: a.text, variations: a.variations, tools: a.tool_calls, model: a.model, to_move: a.to_move }]);
+  const here = rep.rec.asks.filter((a) => a.ply === step && a.variations && a.variations.length);
+  app.best = report && report.is_mistake && report.ply >= step - 1 && step > 0 ? report.best_move : null;
+  if (here.length) {
+    const a = here[here.length - 1];
+    app.variation = { moves: a.variations[a.variations.length - 1], first: a.to_move || 'B' };
+  } else app.variation = null;
+  $('btn-clear-var').hidden = !app.variation;
+  renderChat();
+  renderStatus();
+  updateControls();
+  draw();
+}
+
+function gotoStep(k) {
+  const rep = app.rep;
+  if (!rep || !rep.rec) return;
+  rep.step = Math.max(0, Math.min(rep.frames.length - 1, k));
+  renderReplay();
+}
+
+function stopPlay() {
+  const rep = app.rep;
+  if (!rep) return;
+  rep.playing = false;
+  clearTimeout(rep.timer);
+  rep.timer = null;
+  updateControls();
+}
+
+function tick() {
+  const rep = app.rep;
+  if (!rep || !rep.playing) return;
+  if (rep.step >= rep.frames.length - 1) { stopPlay(); return; }
+  gotoStep(rep.step + 1);
+  const hasAsk = rep.rec.asks.some((a) => a.ply === rep.step);
+  rep.timer = setTimeout(tick, (hasAsk ? 5500 : 2200) / rep.speed);
+}
+
+function togglePlay() {
+  const rep = app.rep;
+  if (!rep || !rep.rec) return;
+  if (rep.playing) { stopPlay(); return; }
+  if (rep.step >= rep.frames.length - 1) gotoStep(0);
+  rep.playing = true;
+  updateControls();
+  rep.timer = setTimeout(tick, 600 / rep.speed);
+}
+
+async function loadRecording(name) {
+  stopPlay();
+  const rep = app.rep;
+  const rec = await api(`/api/replay/${encodeURIComponent(name)}`);
+  rep.rec = rec;
+  rep.frames = buildFrames(rec);
+  rep.step = 0;
+  renderReplay();
+}
+
+async function initReplay() {
+  $('toolbar-play').hidden = true;
+  $('toolbar-replay').hidden = false;
+  $('coord-form').hidden = true;
+  $('rp-slider').hidden = false;
+  $('ask-form').hidden = true;
+  $('ask-h').textContent = 'Questions asked in this game';
+  const data = await api('/api/replay');
+  app.rep = { list: data.recordings, rec: null, frames: [], step: 0, playing: false, timer: null, speed: 1 };
+  const select = $('rec-select');
+  select.replaceChildren(...data.recordings.map((r) => {
+    const when = r.started ? r.started.replace('T', ' ').slice(0, 16) : 'unknown date';
+    const how = r.mode && r.mode !== 'live' ? `, ${r.mode}` : '';
+    return h('option', { value: r.name, text: `${r.learner_id || r.name}, ${when}, ${r.n_moves} moves${how}` });
+  }));
+  renderReplay();
+  if (data.recordings.length) {
+    const first = data.default || data.recordings[0].name;
+    select.value = first;
+    await loadRecording(first);
+  }
+  select.addEventListener('change', () => loadRecording(select.value).catch((e) => toast(e.message)));
+  $('rp-first').addEventListener('click', () => { stopPlay(); gotoStep(0); });
+  $('rp-back').addEventListener('click', () => { stopPlay(); gotoStep(app.rep.step - 1); });
+  $('rp-next').addEventListener('click', () => { stopPlay(); gotoStep(app.rep.step + 1); });
+  $('rp-last').addEventListener('click', () => { stopPlay(); gotoStep(app.rep.frames.length - 1); });
+  $('rp-play').addEventListener('click', togglePlay);
+  $('rp-speed').addEventListener('change', (e) => { app.rep.speed = Number(e.target.value) || 1; });
+  $('rp-slider').addEventListener('input', (e) => { stopPlay(); gotoStep(Number(e.target.value)); });
+  $('rp-summary').addEventListener('click', () => openSummary(app.rep.rec.summary));
+  document.addEventListener('keydown', (e) => {
+    if (e.target.closest('input, select, textarea, button')) return;
+    if (e.key === 'ArrowRight') { stopPlay(); gotoStep(app.rep.step + 1); }
+    if (e.key === 'ArrowLeft') { stopPlay(); gotoStep(app.rep.step - 1); }
+  });
+}
+
+/* ---------- start-up ---------- */
+async function initLive() {
+  const rankSelect = $('rank');
+  rankSelect.replaceChildren(...app.info.ranks.map((r) => h('option', { value: r, text: r })));
+  rankSelect.value = app.info.ranks.includes(storeGet('sensei.rank', '')) ? storeGet('sensei.rank', '') : app.info.default_rank;
+  $('player').value = sanitizeId(storeGet('sensei.player', 'player')) || 'player';
+
+  $('btn-new').addEventListener('click', newGame);
+  $('btn-pass').addEventListener('click', () => playMove('pass'));
+  $('btn-end').addEventListener('click', endGame);
+  $('btn-clear-var').addEventListener('click', clearVariation);
+  $('summary-new').addEventListener('click', () => { $('summary').close(); newGame(); });
+  $('coord-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const move = $('coord').value.trim().toUpperCase();
+    if (!/^[A-HJ-T](1[0-9]|[1-9])$/.test(move)) { toast('Type a point such as D4 (columns A to T without I, rows 1 to 19).'); return; }
+    if (app.state && app.state.board[move]) { toast(`${move} is already occupied.`); return; }
+    $('coord').value = '';
+    playMove(move);
+  });
+  $('ask-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = $('ask-input').value;
+    $('ask-input').value = '';
+    sendQuestion(text);
+  });
+
+  Board.svg.addEventListener('pointermove', (ev) => {
+    if (!canPlay()) { Board.ghost(null); return; }
+    const m = Board.pointAt(ev);
+    Board.ghost(m && !app.state.board[m] ? m : null, app.state.learner_color);
+  });
+  Board.svg.addEventListener('pointerleave', () => Board.ghost(null));
+  Board.svg.addEventListener('click', (ev) => {
+    if (!canPlay()) return;
+    const m = Board.pointAt(ev);
+    if (m && !app.state.board[m]) playMove(m);
+  });
+
+  const resume = sanitizeId(storeGet('sensei.active', ''));
+  if (resume) {
+    try {
+      const st = await api(`/api/state?learner_id=${encodeURIComponent(resume)}`);
+      app.learnerId = resume;
+      app.state = st;
+      adoptHistory(st);
+      $('player').value = resume;
+      $('rank').value = st.declared_rank || $('rank').value;
+    } catch (_) {
+      storeSet('sensei.active', ''); // the server no longer has that game
+    }
+  }
+  renderAll();
+}
+
+async function main() {
+  $('dialog-placeholder')?.remove();
+  $('summary-close').addEventListener('click', () => $('summary').close());
+  try {
+    app.info = await api('/api/info');
+  } catch (e) {
+    toast(`Cannot reach the Sensei server: ${e.message}`);
+    return;
+  }
+  renderSensei(null);
+  renderChat();
+  if (MODE === 'replay') await initReplay(); else await initLive();
+}
+
+main().catch((e) => toast(e.message));
+})();
+</script>
+</body>
+</html>
