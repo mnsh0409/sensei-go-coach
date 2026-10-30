@@ -375,7 +375,7 @@ def test_pilot_then_confirmatory_through_eval_run(tmp_path, fake_engine, monkeyp
     assert details["epsilon_star"] == pilot["epsilon"] and details["epsilon_star"] in (0.005, 0.01, 0.02)
     assert [g["index"] for g in details["games"]] == list(range(12))
     assert details["learner_profile"] == "rank_10k" and details["openings"]["used"] == 2
-    assert any(d["field"] == "C1.learner_profile" for d in pilot["deviations"])
+    assert not any(d["field"] == "C1.learner_profile" for d in pilot["deviations"])  # fixed in the prereg
     assert pilot["katago_version"] == "1.16.4-fake" and pilot["nets"]["main"]["sha256"] is None
     assert {"host", "gpu", "katago_backend"} <= set(pilot["hardware"])
     assert progress_lines[-1] == (12, 12) and len(games_log.read_text(encoding="utf-8").splitlines()) == 12
@@ -417,3 +417,11 @@ def test_epsilon_for_c2_prefers_the_confirmatory_c1(tmp_path):
     write("pilot_C1_20261101-100000.json", pilot=True, details={"epsilon_star": 0.02})  # a later pilot disagrees
     value, _, devs = c1.epsilon_for_c2(tmp_path, eps)
     assert value == 0.01 and len(devs) == 1 and "gives epsilon* = 0.02" in devs[0]["reason"]
+
+
+def test_a_prereg_without_learner_profile_falls_back_with_a_deviation():
+    cfg = copy.deepcopy(PRE)
+    cfg["C1"].pop("learner_profile", None)
+    profile, deviations = c1.learner_profile_of(cfg)
+    assert profile == "rank_10k" and deviations[0]["field"] == "C1.learner_profile"
+    assert c1.learner_profile_of(PRE) == ("rank_10k", [])
