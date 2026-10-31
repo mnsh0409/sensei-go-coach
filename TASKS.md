@@ -194,6 +194,25 @@ concurrent evaluation on one GPU, batched multi-profile HumanSL rank estimation)
 Accept: `scripts/check_numbers.py` passes on the filled file; no `{{` left in it; PDF exported from PowerPoint at
 300 dpi; submitted on the GTC portal with whatever the form requires.
 
+## T12 C2b: pre-registered lesson relevance on fresh games (after submission, for the poster; agreed 2026-10-31)
+
+Origin: the descriptive `results/relevance_baselines.md` (commit a231355). Of its six band-to-stronger-band steps,
+one beat a random admissible move: the 15k-10k lesson as played by 4k-1k players. It was found after the fact and is
+sensitive to KataGo's run-to-run variation, so C2b tests it on games that no split has used.
+Data: games in `data/raw/ogs` not named anywhere in `data/splits.json` (1,570 on 2026-10-31), plus the games
+`scripts/fetch_games.py --target 4500` adds (started 2026-10-31). Drawn once, with a fixed seed, into
+`data/splits_c2b.json`, committed after the prereg entry and before any analysis.
+Prereg (human approval): a `C2b` entry in `configs/prereg.yaml` that states the hypothesis's exploratory origin.
+Sensei unchanged (C1's epsilon*, C2's bands and profiles). Primary: R = [P_4k-1k(played = s_15k-10k) /
+P_15k-10k(played = s_15k-10k)] / [the same ratio for r, a random admissible move]; success: the lower end of the 95%
+game-clustered bootstrap CI of R is above 1. One KataGo pass per position, every lesson from that pass. Positions per
+band, cap per game and resamples fixed in the entry before the split is drawn. Secondary, descriptive: the engine's
+best move as a second baseline, the other kyu steps, positions where the lesson is not the best move, and the dan band
+only if the fetch brings enough new dan games.
+Build: the fresh-game split script, `eval/c2b_relevance.py` (reusing `c2_relevance.py` and `relevance_baselines.py`)
+with tests, `python -m eval.run --claim C2b`, poster tokens.
+Accept: tests pass; `results/C2b_*.json` from a clean commit; the poster reports it whatever the verdict.
+
 ---
 
 ## Stretch (only after T9 is DONE)
