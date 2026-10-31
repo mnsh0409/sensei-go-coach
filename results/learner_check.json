@@ -1,0 +1,840 @@
+{
+ "kind": "learner_check",
+ "descriptive": true,
+ "git_commit": "879c877",
+ "git_dirty": true,
+ "created": "2026-10-31T11:51:37+08:00",
+ "wall_clock_s": 611.3,
+ "hardware": {
+  "host": "DESKTOP-DNJODF2",
+  "os": "Windows 11",
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "driver": "610.88",
+  "cuda": null,
+  "katago_backend": "cuda",
+  "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+  "ram_gb": 189.6,
+  "python": "3.12.8"
+ },
+ "katago_version": "1.18.0",
+ "nets": {
+  "main": {
+   "file": "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz",
+   "sha256": "9d7a6afed8ff5b74894727e156f04f0cd36060a24824892008fbb6e0cba51f1d"
+  },
+  "human": {
+   "file": "b18c384nbt-humanv0.bin.gz",
+   "sha256": "637746e44f0efe00ad1245a50aa9bbf0716efe364c43965ead97bd6835d84ab5"
+  }
+ },
+ "analysis_config": {
+  "file": "katago_analysis.cfg",
+  "sha256": "197f69cc8b4c4d49271f937396fa8c6ed37e58878e964e980f997c5df3f20d23",
+  "numAnalysisThreads": 8,
+  "numSearchThreadsPerAnalysisThread": 2,
+  "wideRootNoise": null,
+  "ignorePreRootHistory": null,
+  "rootNumSymmetriesToSample": null,
+  "reportAnalysisWinratesAs": "BLACK",
+  "nnCacheSizePowerOfTwo": 23,
+  "query_overrides": {
+   "analyze": {
+    "reportAnalysisWinratesAs": "SIDETOMOVE"
+   },
+   "human_policy": {
+    "reportAnalysisWinratesAs": "SIDETOMOVE",
+    "ignorePreRootHistory": false,
+    "rootNumSymmetriesToSample": 8
+   }
+  }
+ },
+ "profile_grid": [
+  "rank_20k",
+  "rank_15k",
+  "rank_12k",
+  "rank_10k",
+  "rank_8k",
+  "rank_6k",
+  "rank_4k",
+  "rank_2k",
+  "rank_1d",
+  "rank_3d",
+  "rank_5d"
+ ],
+ "checkpoints": [
+  20,
+  40,
+  80,
+  "all"
+ ],
+ "summary": {
+  "20": {
+   "n_games": 20,
+   "mean_abs_error_ranks": 2.575
+  },
+  "40": {
+   "n_games": 20,
+   "mean_abs_error_ranks": 2.183
+  },
+  "80": {
+   "n_games": 16,
+   "mean_abs_error_ranks": 1.635
+  },
+  "all": {
+   "n_games": 20,
+   "mean_abs_error_ranks": 2.346
+  }
+ },
+ "per_band": {
+  "15k-10k": {
+   "20": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 2.777
+   },
+   "40": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 3.144
+   },
+   "80": {
+    "n_games": 4,
+    "mean_abs_error_ranks": 2.186
+   },
+   "all": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 3.371
+   }
+  },
+  "9k-5k": {
+   "20": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 3.55
+   },
+   "40": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 2.882
+   },
+   "80": {
+    "n_games": 3,
+    "mean_abs_error_ranks": 1.628
+   },
+   "all": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 3.673
+   }
+  },
+  "4k-1k": {
+   "20": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 2.636
+   },
+   "40": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 1.817
+   },
+   "80": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 2.062
+   },
+   "all": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 1.947
+   }
+  },
+  "1d-3d": {
+   "20": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 1.338
+   },
+   "40": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 0.889
+   },
+   "80": {
+    "n_games": 4,
+    "mean_abs_error_ranks": 0.556
+   },
+   "all": {
+    "n_games": 5,
+    "mean_abs_error_ranks": 0.395
+   }
+  }
+ },
+ "games": [
+  {
+   "game": "ogs-87472048",
+   "band": "15k-10k",
+   "color": "B",
+   "true_rank": "11k",
+   "true_numeric": -10.0,
+   "moves": 129,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -9.658,
+     "rank_sd": 4.585,
+     "label": "11k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -12.163,
+     "rank_sd": 4.303,
+     "label": "13k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -6.661,
+     "rank_sd": 2.232,
+     "label": "8k"
+    },
+    "all": {
+     "n_moves": 129,
+     "rank": -11.167,
+     "rank_sd": 3.032,
+     "label": "12k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-84787252",
+   "band": "15k-10k",
+   "color": "B",
+   "true_rank": "15k",
+   "true_numeric": -14.0,
+   "moves": 59,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -5.288,
+     "rank_sd": 3.16,
+     "label": "6k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -7.008,
+     "rank_sd": 2.124,
+     "label": "8k"
+    },
+    "all": {
+     "n_moves": 59,
+     "rank": -7.113,
+     "rank_sd": 1.823,
+     "label": "8k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-85252951",
+   "band": "15k-10k",
+   "color": "B",
+   "true_rank": "13k",
+   "true_numeric": -12.0,
+   "moves": 121,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -11.321,
+     "rank_sd": 2.637,
+     "label": "12k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -11.877,
+     "rank_sd": 2.759,
+     "label": "13k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -13.195,
+     "rank_sd": 2.615,
+     "label": "14k"
+    },
+    "all": {
+     "n_moves": 121,
+     "rank": -14.571,
+     "rank_sd": 2.717,
+     "label": "16k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-67449407",
+   "band": "15k-10k",
+   "color": "B",
+   "true_rank": "11k",
+   "true_numeric": -10.0,
+   "moves": 115,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -10.685,
+     "rank_sd": 3.944,
+     "label": "12k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -12.307,
+     "rank_sd": 3.548,
+     "label": "13k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -9.388,
+     "rank_sd": 2.804,
+     "label": "10k"
+    },
+    "all": {
+     "n_moves": 115,
+     "rank": -7.586,
+     "rank_sd": 1.424,
+     "label": "9k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-90984342",
+   "band": "15k-10k",
+   "color": "B",
+   "true_rank": "10k",
+   "true_numeric": -9.0,
+   "moves": 118,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -5.533,
+     "rank_sd": 3.226,
+     "label": "7k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -4.866,
+     "rank_sd": 2.117,
+     "label": "6k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -5.401,
+     "rank_sd": 1.294,
+     "label": "6k"
+    },
+    "all": {
+     "n_moves": 118,
+     "rank": -5.186,
+     "rank_sd": 0.815,
+     "label": "6k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-68751960",
+   "band": "9k-5k",
+   "color": "B",
+   "true_rank": "8k",
+   "true_numeric": -7.0,
+   "moves": 94,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -9.697,
+     "rank_sd": 3.081,
+     "label": "11k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -8.853,
+     "rank_sd": 2.248,
+     "label": "10k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -8.25,
+     "rank_sd": 1.356,
+     "label": "9k"
+    },
+    "all": {
+     "n_moves": 94,
+     "rank": -8.253,
+     "rank_sd": 1.297,
+     "label": "9k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-74052842",
+   "band": "9k-5k",
+   "color": "B",
+   "true_rank": "5k",
+   "true_numeric": -4.0,
+   "moves": 121,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -5.87,
+     "rank_sd": 2.436,
+     "label": "7k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -5.39,
+     "rank_sd": 1.597,
+     "label": "6k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -4.512,
+     "rank_sd": 1.06,
+     "label": "6k"
+    },
+    "all": {
+     "n_moves": 121,
+     "rank": -5.263,
+     "rank_sd": 0.725,
+     "label": "6k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-68704720",
+   "band": "9k-5k",
+   "color": "B",
+   "true_rank": "8k",
+   "true_numeric": -7.0,
+   "moves": 42,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -3.504,
+     "rank_sd": 1.262,
+     "label": "5k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -3.264,
+     "rank_sd": 0.948,
+     "label": "4k"
+    },
+    "all": {
+     "n_moves": 42,
+     "rank": -3.246,
+     "rank_sd": 0.935,
+     "label": "4k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-70710057",
+   "band": "9k-5k",
+   "color": "W",
+   "true_rank": "9k",
+   "true_numeric": -8.0,
+   "moves": 104,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -6.444,
+     "rank_sd": 2.676,
+     "label": "7k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -8.123,
+     "rank_sd": 3.333,
+     "label": "9k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -4.877,
+     "rank_sd": 1.877,
+     "label": "6k"
+    },
+    "all": {
+     "n_moves": 104,
+     "rank": -3.268,
+     "rank_sd": 0.808,
+     "label": "4k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-87330393",
+   "band": "9k-5k",
+   "color": "W",
+   "true_rank": "9k",
+   "true_numeric": -8.0,
+   "moves": 69,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": 0.13,
+     "rank_sd": 1.226,
+     "label": "1k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -0.69,
+     "rank_sd": 0.945,
+     "label": "2k"
+    },
+    "all": {
+     "n_moves": 69,
+     "rank": -0.637,
+     "rank_sd": 0.839,
+     "label": "2k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-85252668",
+   "band": "4k-1k",
+   "color": "W",
+   "true_rank": "4k",
+   "true_numeric": -3.0,
+   "moves": 149,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -0.024,
+     "rank_sd": 1.703,
+     "label": "1k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -1.783,
+     "rank_sd": 1.211,
+     "label": "3k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -2.276,
+     "rank_sd": 1.005,
+     "label": "3k"
+    },
+    "all": {
+     "n_moves": 149,
+     "rank": -2.106,
+     "rank_sd": 0.995,
+     "label": "3k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-70513593",
+   "band": "4k-1k",
+   "color": "B",
+   "true_rank": "2k",
+   "true_numeric": -1.0,
+   "moves": 102,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": 1.232,
+     "rank_sd": 3.346,
+     "label": "1d"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": 0.365,
+     "rank_sd": 1.743,
+     "label": "1k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": 1.172,
+     "rank_sd": 0.894,
+     "label": "1d"
+    },
+    "all": {
+     "n_moves": 102,
+     "rank": 1.154,
+     "rank_sd": 0.656,
+     "label": "1d"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-77152824",
+   "band": "4k-1k",
+   "color": "B",
+   "true_rank": "2k",
+   "true_numeric": -1.0,
+   "moves": 101,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": 4.521,
+     "rank_sd": 0.907,
+     "label": "5d"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": 3.506,
+     "rank_sd": 1.05,
+     "label": "4d"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": 1.604,
+     "rank_sd": 0.925,
+     "label": "2d"
+    },
+    "all": {
+     "n_moves": 101,
+     "rank": 1.228,
+     "rank_sd": 0.646,
+     "label": "1d"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-83077337",
+   "band": "4k-1k",
+   "color": "B",
+   "true_rank": "4k",
+   "true_numeric": -3.0,
+   "moves": 105,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -1.134,
+     "rank_sd": 2.133,
+     "label": "2k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -1.637,
+     "rank_sd": 1.399,
+     "label": "3k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": 0.459,
+     "rank_sd": 0.958,
+     "label": "1k"
+    },
+    "all": {
+     "n_moves": 105,
+     "rank": 0.326,
+     "rank_sd": 0.971,
+     "label": "1k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-68743710",
+   "band": "4k-1k",
+   "color": "B",
+   "true_rank": "3k",
+   "true_numeric": -2.0,
+   "moves": 114,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -1.417,
+     "rank_sd": 2.062,
+     "label": "2k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -1.365,
+     "rank_sd": 1.095,
+     "label": "2k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -0.651,
+     "rank_sd": 0.846,
+     "label": "2k"
+    },
+    "all": {
+     "n_moves": 114,
+     "rank": -0.865,
+     "rank_sd": 0.541,
+     "label": "2k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-79742817",
+   "band": "1d-3d",
+   "color": "B",
+   "true_rank": "2d",
+   "true_numeric": 2.0,
+   "moves": 134,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": 3.214,
+     "rank_sd": 1.613,
+     "label": "3d"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": 2.994,
+     "rank_sd": 1.064,
+     "label": "3d"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": 1.98,
+     "rank_sd": 1.013,
+     "label": "2d"
+    },
+    "all": {
+     "n_moves": 134,
+     "rank": 2.038,
+     "rank_sd": 1.003,
+     "label": "2d"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-78787386",
+   "band": "1d-3d",
+   "color": "B",
+   "true_rank": "3d",
+   "true_numeric": 3.0,
+   "moves": 67,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": 3.202,
+     "rank_sd": 1.823,
+     "label": "3d"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": 2.319,
+     "rank_sd": 1.307,
+     "label": "2d"
+    },
+    "all": {
+     "n_moves": 67,
+     "rank": 2.588,
+     "rank_sd": 0.962,
+     "label": "3d"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-87455116",
+   "band": "1d-3d",
+   "color": "W",
+   "true_rank": "2d",
+   "true_numeric": 2.0,
+   "moves": 114,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": 4.225,
+     "rank_sd": 1.305,
+     "label": "4d"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": 2.106,
+     "rank_sd": 1.922,
+     "label": "2d"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": 1.59,
+     "rank_sd": 1.264,
+     "label": "2d"
+    },
+    "all": {
+     "n_moves": 114,
+     "rank": 1.416,
+     "rank_sd": 1.031,
+     "label": "1d"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-74091247",
+   "band": "1d-3d",
+   "color": "W",
+   "true_rank": "1d",
+   "true_numeric": 1.0,
+   "moves": 125,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": -1.499,
+     "rank_sd": 1.961,
+     "label": "2k"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": -1.047,
+     "rank_sd": 1.1,
+     "label": "2k"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": -0.739,
+     "rank_sd": 0.778,
+     "label": "2k"
+    },
+    "all": {
+     "n_moves": 125,
+     "rank": 0.109,
+     "rank_sd": 0.995,
+     "label": "1k"
+    }
+   },
+   "error": null
+  },
+  {
+   "game": "ogs-67605478",
+   "band": "1d-3d",
+   "color": "B",
+   "true_rank": "1d",
+   "true_numeric": 1.0,
+   "moves": 83,
+   "estimates": {
+    "20": {
+     "n_moves": 20,
+     "rank": 1.55,
+     "rank_sd": 1.57,
+     "label": "2d"
+    },
+    "40": {
+     "n_moves": 40,
+     "rank": 1.618,
+     "rank_sd": 1.025,
+     "label": "2d"
+    },
+    "80": {
+     "n_moves": 80,
+     "rank": 0.946,
+     "rank_sd": 0.406,
+     "label": "1d"
+    },
+    "all": {
+     "n_moves": 83,
+     "rank": 0.951,
+     "rank_sd": 0.397,
+     "label": "1d"
+    }
+   },
+   "error": null
+  }
+ ]
+}

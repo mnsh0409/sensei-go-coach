@@ -1,0 +1,369 @@
+{
+  "claim": "C3",
+  "pilot": false,
+  "git_commit": "879c877",
+  "git_dirty": false,
+  "config_path": "configs/prereg.yaml",
+  "config": {
+    "version": 2,
+    "frozen": "2026-10-27",
+    "revisions": [
+      {
+        "date": "2026-10-27",
+        "before_any_run": true,
+        "reason": "Kit audit: side-to-move perspective made explicit; C1 became a two-stage design with a pre-registered epsilon rule; C2's primary metric became cross-band uplift with game-clustered bootstrap and a post-release date window; C3 gained greedy and oracle policies, a game-sized observation model and gap closure as the headline; entropy thresholds moved to configs/default.yaml (runtime). Design-stage C3 simulations used seeds 0 to 2; confirmatory runs use seeds.global."
+      },
+      {
+        "date": "2026-10-30",
+        "before_any_run": true,
+        "reason": "Approved by the human before any C1 game: C1.learner_profile fixes the learner policy pi_L behind Sensei's choices in C1 to the HumanSL profile rank_10k, the app's default declared rank. v2 left it unspecified."
+      }
+    ],
+    "game": {
+      "board_size": 19,
+      "rules": "chinese",
+      "komi": 7.5
+    },
+    "engine": {
+      "max_visits": 200,
+      "min_candidate_visits_abs": 10,
+      "min_candidate_visits_frac": 0.05,
+      "winrate_perspective": "SIDETOMOVE"
+    },
+    "selector": {
+      "delta": 1e-06,
+      "temperature_eval": 0.0
+    },
+    "openings": {
+      "n_openings": 200,
+      "pilot_n_openings": 20,
+      "plies": 12
+    },
+    "adjudication": {
+      "decisive_winrate": 0.97,
+      "decisive_plies": 4,
+      "max_plies": 300,
+      "final_position_rule": "score_lead_sign"
+    },
+    "C1": {
+      "pilot_epsilons": [
+        0.005,
+        0.01,
+        0.02
+      ],
+      "pilot_games_each": 40,
+      "pilot_min_score": 0.35,
+      "n_games": 400,
+      "bootstrap_resamples": 10000,
+      "ci": 0.95,
+      "success_max_cost_elo_upper": 150,
+      "learner_profile": "rank_10k"
+    },
+    "C2": {
+      "epsilon": "c1_confirmatory",
+      "game_date_min": "2024-08-01",
+      "bands": [
+        {
+          "name": "15k-10k",
+          "profile": "rank_12k"
+        },
+        {
+          "name": "9k-5k",
+          "profile": "rank_7k"
+        },
+        {
+          "name": "4k-1k",
+          "profile": "rank_2k"
+        },
+        {
+          "name": "1d-3d",
+          "profile": "rank_2d"
+        }
+      ],
+      "positions_per_band": 500,
+      "max_positions_per_game": 5,
+      "ply_min": 20,
+      "ply_max": 200,
+      "min_admissible": 2,
+      "bootstrap_resamples": 10000,
+      "ci": 0.95
+    },
+    "C3": {
+      "n_learners": 50,
+      "n_topics": 8,
+      "weak_topics_per_learner": 2,
+      "p_weak": 0.4,
+      "p_base": 0.1,
+      "eta_target": 0.15,
+      "eta_transfer": 0.0375,
+      "sessions": 20,
+      "moves_per_session": 120,
+      "discount": 0.9,
+      "prior": [
+        1.0,
+        1.0
+      ],
+      "policies": [
+        "thompson",
+        "greedy_mean",
+        "round_robin",
+        "uniform_random",
+        "oracle"
+      ],
+      "identification_session": 10,
+      "bootstrap_resamples": 10000,
+      "ci": 0.95
+    },
+    "learner": {
+      "profile_grid": [
+        "rank_20k",
+        "rank_15k",
+        "rank_12k",
+        "rank_10k",
+        "rank_8k",
+        "rank_6k",
+        "rank_4k",
+        "rank_2k",
+        "rank_1d",
+        "rank_3d",
+        "rank_5d"
+      ],
+      "min_moves_for_estimate": 20,
+      "delta": 1e-06
+    },
+    "seeds": {
+      "global": 20261027
+    }
+  },
+  "deviations": [],
+  "katago_version": null,
+  "nets": null,
+  "analysis_config": null,
+  "hardware": {
+    "host": "DESKTOP-DNJODF2",
+    "os": "Windows 11",
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "driver": "610.88",
+    "cuda": null,
+    "katago_backend": null,
+    "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+    "ram_gb": 189.6,
+    "python": "3.12.8"
+  },
+  "concurrency": null,
+  "epsilon": null,
+  "seed": 20261027,
+  "started": "2026-10-31T11:48:28+08:00",
+  "finished": "2026-10-31T11:48:28+08:00",
+  "wall_clock_s": 0.123,
+  "engine_queries": 0,
+  "n": 50,
+  "estimate": 0.19346893979966898,
+  "ci": [
+    0.18665341088635617,
+    0.20016404451005296
+  ],
+  "success": true,
+  "details": {
+    "simulation": true,
+    "note": "Closed-loop simulation with assumed learning dynamics (SCOPE.md C3): it checks that the curriculum finds and targets weaknesses under those dynamics, not that humans learn faster.",
+    "metric": "AUC(round_robin) - AUC(thompson) of the mean mistake-rate curve over sessions (simulation)",
+    "auc_definition": "sum over sessions of the mean true mistake rate during the session, per learner",
+    "headline": {
+      "name": "gap_closure",
+      "estimate": 0.8267262544249155,
+      "ci": [
+        0.803963668775655,
+        0.8494071952082028
+      ]
+    },
+    "auc": {
+      "thompson": 2.0166550523322826,
+      "greedy_mean": 2.0194635343188994,
+      "round_robin": 2.2101239921319515,
+      "uniform_random": 2.219659352400958,
+      "oracle": 1.9761058527972464
+    },
+    "auc_sd": {
+      "thompson": 0.01980937362198511,
+      "greedy_mean": 0.016869308658981123,
+      "round_robin": 0.018643979997340653,
+      "uniform_random": 0.052703638128851184,
+      "oracle": 2.2429892266911074e-16
+    },
+    "mean_curve": {
+      "thompson": [
+        0.17499999999999996,
+        0.16627187499999999,
+        0.15516050781250007,
+        0.14446776806640618,
+        0.13471878054809577,
+        0.12566156290229796,
+        0.11743245925023749,
+        0.10974833363217457,
+        0.10261134187736372,
+        0.09595347368280142,
+        0.08984180979481497,
+        0.08425253365490719,
+        0.07907904103675713,
+        0.0742407209666174,
+        0.06977984621775574,
+        0.06564027531476052,
+        0.06178035085063336,
+        0.05824162696297467,
+        0.05490490355721806,
+        0.051867841203966335
+      ],
+      "greedy_mean": [
+        0.17499999999999996,
+        0.16627187500000004,
+        0.1548388281250001,
+        0.1443624443359374,
+        0.13464693902587904,
+        0.12573303255447385,
+        0.1175986096301976,
+        0.11006679579142781,
+        0.10302494023940957,
+        0.09642740266890266,
+        0.09031049973137018,
+        0.08453132441599656,
+        0.07922168631112796,
+        0.07429774179267212,
+        0.06982663472473445,
+        0.0657427769818597,
+        0.061939687367662394,
+        0.05846523484057435,
+        0.05513111686893683,
+        0.052025963912736756
+      ],
+      "round_robin": [
+        0.17499999999999996,
+        0.166271875,
+        0.15795226562499998,
+        0.1497101450195313,
+        0.14186406308593744,
+        0.1343959074059296,
+        0.12714897197455596,
+        0.12039073022857302,
+        0.11383141689035352,
+        0.10815407497294703,
+        0.10274245826934406,
+        0.09738124531676297,
+        0.0922776417536843,
+        0.08741986608160969,
+        0.08270598649151742,
+        0.07830998515647299,
+        0.07404337983580246,
+        0.07035046626649188,
+        0.0668303977119854,
+        0.0633431150454527
+      ],
+      "uniform_random": [
+        0.17499999999999996,
+        0.16542812500000006,
+        0.15709374999999998,
+        0.14940585449218757,
+        0.14140996705322265,
+        0.1343716883058167,
+        0.12770776313150117,
+        0.12113543038643623,
+        0.11475428790175797,
+        0.1089688791516247,
+        0.1031710521607832,
+        0.09802928471486044,
+        0.09294585964134985,
+        0.08823883469633989,
+        0.0837316948287755,
+        0.0793345464632615,
+        0.07534571535868034,
+        0.07147024355456824,
+        0.0678076644867721,
+        0.06430871107301982
+      ],
+      "oracle": [
+        0.17499999999999996,
+        0.16281250000000014,
+        0.15129296875,
+        0.14101752929687514,
+        0.1312999920654298,
+        0.12261126946258553,
+        0.1143895604411125,
+        0.10701973347043868,
+        0.10004178320319512,
+        0.09377021261028858,
+        0.0878283260542204,
+        0.08247308578148214,
+        0.07739597994568558,
+        0.07280692034658008,
+        0.06845320212060868,
+        0.0645062671350575,
+        0.06075908995794063,
+        0.05735166074889841,
+        0.054114346260280985,
+        0.05116142514656682
+      ]
+    },
+    "gap_closure": {
+      "estimate": 0.8267262544249155,
+      "ci": [
+        0.803963668775655,
+        0.8494071952082028
+      ]
+    },
+    "auc_vs_thompson": {
+      "greedy_mean": {
+        "estimate": 0.0028084819866164424,
+        "ci": [
+          -0.004029085794924759,
+          0.009577683435475678
+        ]
+      },
+      "round_robin": {
+        "estimate": 0.19346893979966898,
+        "ci": [
+          0.18665341088635617,
+          0.20016404451005296
+        ]
+      },
+      "uniform_random": {
+        "estimate": 0.20300430006867537,
+        "ci": [
+          0.18660855250592143,
+          0.21860789595878502
+        ]
+      },
+      "oracle": {
+        "estimate": -0.0405491995350364,
+        "ci": [
+          -0.04598733880782326,
+          -0.03511697206648273
+        ]
+      }
+    },
+    "greedy_vs_thompson": {
+      "estimate": 0.0028084819866164424,
+      "ci": [
+        -0.004029085794924759,
+        0.009577683435475678
+      ]
+    },
+    "identification_session": 10,
+    "identification_rule": "weak topics are strictly the most-selected arms over sessions 1..identification_session (min count over weak topics > max count over the others)",
+    "identification_share": {
+      "thompson": 0.94,
+      "greedy_mean": 0.86,
+      "round_robin": 0.0,
+      "uniform_random": 0.0,
+      "oracle": 1.0
+    },
+    "policies": [
+      "thompson",
+      "greedy_mean",
+      "round_robin",
+      "uniform_random",
+      "oracle"
+    ],
+    "bootstrap_seed": 3831652026,
+    "success_rule": "AUC(thompson) < AUC(round_robin) with the paired CI over learners excluding 0"
+  }
+}

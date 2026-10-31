@@ -1,0 +1,674 @@
+{
+ "version": "v1",
+ "created": "2026-10-31T11:51:37+08:00",
+ "git_commit": "879c877",
+ "git_dirty": true,
+ "model": "muse-spark-1.3",
+ "epsilon": 0.01,
+ "fake_engine": false,
+ "records": [
+  {
+   "id": "e1",
+   "game": "ogs-86228104",
+   "ply": 37,
+   "phase": "opening",
+   "declared_rank": "15k",
+   "board": "37 moves played, W to play, last move B D15, captured B 0 W 0\n   A B C D E F G H J K L M N O P Q R S T\n19 . . . . . . . . . . . . . . . . . . . 19\n18 . . . . . . . . . . . . . . . . . . . 18\n17 . . . . . . . . . . . . . . . . . . . 17\n16 . . O X . X . . . + . . . . . X . . . 16\n15 . O X(X). . . . . . . . . . . . . . . 15\n14 . . O O O . . . . . . . . . . . . . . 14\n13 . . O X X X . . . . . . . . . . . . . 13\n12 . O X O . . . . . . . . . . . . . . . 12\n11 . . X . . . . . . . . . . . . . . . . 11\n10 . . X + . . . . . O . . . . . + . . . 10\n 9 . . . . . . . . . . . . . . . . . . .  9\n 8 . . . . . . . . . . . . . . . . . . .  8\n 7 . . . . . . . . . . . . . . . . . . .  7\n 6 . . X X . . . . . . . . . . . O . . .  6\n 5 . O O . X X . . . . . . . . . . . . .  5\n 4 . . . O O X . . . + . . . X . O . . .  4\n 3 . . . . . O O . . X . . . X O . . . .  3\n 2 . . . . . . . . . . . . . . . . . . .  2\n 1 . . . . . . . . . . . . . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "W",
+   "choice": {
+    "move": "D17",
+    "engine_top": "D17",
+    "value_loss": 0.0,
+    "position_class": "tactical",
+    "admissible": [
+     "D17",
+     "C17",
+     "B17"
+    ]
+   },
+   "explanation": {
+    "text": "On move 38 after Black played D15 you played D17 for White. Before the move the engine winrate for White was 98.8 percent and D17 has 0.0 percent winrate value loss. D17 is the engine candidate with winrate 99.0 percent and score lead +13.7 with prior 26.9 percent and 86 visits, compared with C17 with winrate 98.7 percent and score lead +12.8 with prior 53.3 percent and 77 visits, and there are 3 admissible moves within the value bound with instructiveness 0.60.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 434,
+    "completion_tokens": 1229,
+    "cost_usd": 0.00576575,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "What is the idea behind D17, and what should I watch for next?",
+    "text": "D17 is the engine best move for White with about 99.0 percent winrate and about 13.7 points score lead, so its idea is to take the firm good shape on the upper left while keeping your large lead. It settles your stones and pressures Black at the same time, with nearby ideas like C17 and B17 just slightly behind in winrate. Next watch the aji around C17, B17, B16 and E16 and answer calmly to stay connected rather than chasing too hard.",
+    "prompt_tokens": 2725,
+    "completion_tokens": 1153,
+    "cost_usd": 0.0083065,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"D17\"}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     }
+    ],
+    "variations": [],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e2",
+   "game": "ogs-77324422",
+   "ply": 25,
+   "phase": "opening",
+   "declared_rank": "5k",
+   "board": "25 moves played, W to play, last move B R14, captured B 0 W 0\n   A B C D E F G H J K L M N O P Q R S T\n19 . . . . . . . . . . . . . . . . . . . 19\n18 . . . . . . . . . . . . . . . . . . . 18\n17 . . . . . . . . . . . . . . . X . . . 17\n16 . . . O . . . . . + . . . . . + . . . 16\n15 . . . . . . . . . . . . . . . . . . . 15\n14 . . O . . . . . . . . . . . . .(X). . 14\n13 . . . . . . . . . . . . . . . . . . . 13\n12 . . . . . . . . . . . . . . . . . . . 12\n11 . . . . . . . . . . . . . . . . . . . 11\n10 . . . + . . . . . + . . . . . + . . . 10\n 9 . . . . . . . . . . . . . . . . . . .  9\n 8 . . . . . . . . . . . . . . . . . . .  8\n 7 . . . X . . . . . . . . . . . . . . .  7\n 6 . . . . X . . . . . . . . . . . O . .  6\n 5 . . . O X O . . . . . . . . . . . . .  5\n 4 . . X X O . O . . X . . . . . O . . .  4\n 3 . . . . O . X O O X . . . X . . . . .  3\n 2 . . . X X . O . . . . . . . . . . . .  2\n 1 . . . . . . . . . . . . . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "W",
+   "choice": {
+    "move": "P3",
+    "engine_top": "M3",
+    "value_loss": 0.0,
+    "position_class": "tactical",
+    "admissible": [
+     "P3"
+    ]
+   },
+   "explanation": {
+    "text": "After B played R14 on move 26 White was to play at 44.0 percent winrate in a tactical position and Sensei played P3 with 0.0 percent winrate loss. P3 has 45.0 percent winrate with score lead minus 0.4 and 49 visits, compared with M3 with prior 48.6 percent and 56 visits but 43.2 percent winrate with score lead minus 0.6. P3 had prior of only 4.2 percent yet it was the 1 admissible move within the value bound, and the instructiveness of minus 0.00 shows the engine does not like it much more than a 5k player would.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 434,
+    "completion_tokens": 1372,
+    "cost_usd": 0.0063735,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "Why did you play P3 instead of M3? Show me what happens after M3.",
+    "text": "I played P3 because it holds White at 45.0 percent with a score lead of minus 0.4, while M3 is at 43.2 percent with a score lead of minus 0.6 for a loss of 1.8 percent. After M3 as shown on the board, White falls to 39.7 percent and Black can answer with G6 at 61.1 percent for Black to move. So P3 keeps a little more balance while M3 lets Black seize the initiative.",
+    "prompt_tokens": 2882,
+    "completion_tokens": 1252,
+    "cost_usd": 0.0089235,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"M3\"}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"M3\"]}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     }
+    ],
+    "variations": [
+     [
+      "M3"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e3",
+   "game": "ogs-73738029",
+   "ply": 80,
+   "phase": "middle",
+   "declared_rank": "3k",
+   "board": "80 moves played, B to play, last move W F18, captured B 1 W 1\n   A B C D E F G H J K L M N O P Q R S T\n19 . . . . . . . . . . . . . . . . . . . 19\n18 . . . . .(O). . . . . . . . . . . . . 18\n17 . . . . O . O X O . X . . X . X . . . 17\n16 . . O + . O X . . + . . . X . O X . . 16\n15 . . . . . . . . . O . . O X . O X . . 15\n14 . . . . . . . . . . . . O X . . . . . 14\n13 . . . O . . . . . . . . O X . O . X . 13\n12 . O . . . . . . . . . . O X X O O X . 12\n11 . X O O . . . . O O . . O O O X O O . 11\n10 . X . + O . . . X + . . . . X X X O . 10\n 9 . . X . . . . . . X . X . . . X O O .  9\n 8 . . . . . . . . . . . . . . . X X X .  8\n 7 . . . . . . . . . . . . . . . . . . .  7\n 6 . . . . . O . . . X . . . . . . . . .  6\n 5 . X X X . . . . . . . . . . . . . . .  5\n 4 X O O + . O . O . + . . . . . X X . .  4\n 3 . O . O . . . O X X . . X . . . . . .  3\n 2 . . . . . . . . . . . . . . . . . . .  2\n 1 . . . . . . . . . . . . . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "B",
+   "choice": {
+    "move": "K18",
+    "engine_top": "J16",
+    "value_loss": 0.0003411140000000312,
+    "position_class": "strategic",
+    "admissible": [
+     "J16",
+     "K18",
+     "K17",
+     "H10",
+     "J18",
+     "A12",
+     "H18"
+    ]
+   },
+   "explanation": {
+    "text": "After White played F18 Black was already at 99.9% and Sensei played K18 with a loss of 0.0% so the winrate stays at 99.9%. Compared with the engine candidate J16 which has prior 18.5%, winrate 99.9% and score lead +46.3, K18 has prior 21.3%, winrate 99.9% and score lead +40.2. With instructiveness 1.45 this K18 is a good strategic example to learn because the engine rates it highly even though a player of about 3k strength would be less likely to choose it.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 434,
+    "completion_tokens": 1515,
+    "cost_usd": 0.00698125,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "Why did you play K18 instead of J16? Show me what happens after J16.",
+    "text": "Good eye because J16 is the engine top choice for Black at 99.9 percent and a 46.3 point lead while K18 is also at 99.9 percent but for a 40.2 point lead. I have shown J16 on your board where Black keeps 99.9 percent and a 46.5 point lead and White answers with M17. So K18 was safe but concedes score lead compared to the sharper J16.",
+    "prompt_tokens": 2884,
+    "completion_tokens": 1410,
+    "cost_usd": 0.0095975,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"J16\"}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"J16\"]}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     }
+    ],
+    "variations": [
+     [
+      "J16"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e4",
+   "game": "ogs-72393442",
+   "ply": 52,
+   "phase": "middle",
+   "declared_rank": "3d",
+   "board": "52 moves played, B to play, last move W N2, captured B 0 W 0\n   A B C D E F G H J K L M N O P Q R S T\n19 . . . . . . . . . . . . . . . . . . . 19\n18 . . . O O . . . . . . . . . . . . . . 18\n17 . . X O X O O O . . . . . O X X . . . 17\n16 . . X O X X X . . O . . . O O + X . . 16\n15 . . X . . . . . . . . . . . . . . . . 15\n14 . . . X X X . . . . . . . . . . X . . 14\n13 . . . . O . . . . . . . . . . . . . . 13\n12 . . . O . . . . . . . . . . . . . . . 12\n11 . . . . . . . . . . . . . . . . . . . 11\n10 . . . + . . . . . + . . . . . + . . . 10\n 9 . . . . . . . . . . . . . O . X . . .  9\n 8 . . . . . . . . . . . . . . . . . . .  8\n 7 . . . . . . . . . . . . . O X X . . .  7\n 6 . . . . . . . . . . . . . O . O X . .  6\n 5 . . . . . . . . . . . . . . . O X . .  5\n 4 . . . O . . . . . + . . . . . O X . .  4\n 3 . . . . . O . . X . . X . . O X O O .  3\n 2 . . . . . . . . . . . .(O). O X X X .  2\n 1 . . . . . . . . . . . . . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "B",
+   "choice": {
+    "move": "C9",
+    "engine_top": "C9",
+    "value_loss": 0.0049029770000000306,
+    "position_class": "tactical",
+    "admissible": [
+     "C9",
+     "C10"
+    ]
+   },
+   "explanation": {
+    "text": "After White N2 Black to play on move 53 was at 46.5 percent, and I played C9. C9 has prior 44.3 percent, winrate 46.6 percent and score lead minus 0.0 with 68 visits, while the engine best by winrate is C10 with prior 12.4 percent, winrate 47.1 percent and score lead plus 0.0 with 55 visits, for a value loss of only 0.5 percent winrate 0.005. With 2 admissible moves and instructiveness 2.37, C9 is good to learn because the engine likes it much more than a 3d player would, ahead of the other listed B5 at 45.4 percent, D9 at 44.9 percent and C8 at 44.4 percent.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 434,
+    "completion_tokens": 1292,
+    "cost_usd": 0.0060335,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "What is the idea behind C9, and what should I watch for next?",
+    "text": "C9 is the engine's top suggestion with 44.3 percent prior and 46.6 percent winrate for Black, essentially tied with C10 at 47.1 percent with only 0.5 percent loss. The idea is to take the big left side point to settle your shape and press White there while keeping good follow ups like C10 in reserve. After C9 watch for White to tenuki as the engine replies R7, so be ready to answer on the right side next.",
+    "prompt_tokens": 4531,
+    "completion_tokens": 1548,
+    "cost_usd": 0.01224275,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"C9\"}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"C9\"]}"
+     }
+    ],
+    "variations": [
+     [
+      "C9"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e5",
+   "game": "ogs-87962930",
+   "ply": 137,
+   "phase": "middle",
+   "declared_rank": "10k",
+   "board": "137 moves played, W to play, last move B A8, captured B 0 W 3\n   A B C D E F G H J K L M N O P Q R S T\n19 . . . . . . . . . . . . . . . . X O . 19\n18 . . . . . . . . . . . . . . X . X O . 18\n17 . . . O . . O . . . X . . . . X O . . 17\n16 . . . + . . . . . + . . . X . X . O . 16\n15 . . . . . . . . . . . . . . . X X O . 15\n14 . . O . . X X . . . . X X O . X O . . 14\n13 . . . . O O O X X . . . O O O O . . . 13\n12 . O O X . . X O . X . . O X X X O O . 12\n11 . O X X . O X O . . X . O . . X X O . 11\n10 O . O + X . O . O + . X . O . + X X . 10\n 9 X O O . X O O . O . . . . O X X X O .  9\n 8(X)X X X O X . O X X . . X . O O X O .  8\n 7 . . . O O X . O . . . X . O . . O X .  7\n 6 . . . . . . . . O . X . X X O . O O .  6\n 5 . . O . . X . . . O X O X . . . . . .  5\n 4 . . . + . . . . . + O . . . . X . O .  4\n 3 . . . O . . X . O O O O . X . . X O .  3\n 2 . . . . O O X . X X X . O . . . X . .  2\n 1 . . . . . . . X . . . X . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "W",
+   "choice": {
+    "move": "H3",
+    "engine_top": "H3",
+    "value_loss": 5.789999999450401e-07,
+    "position_class": "tactical",
+    "admissible": [
+     "H3",
+     "D5",
+     "F16",
+     "E5",
+     "E6",
+     "E16",
+     "D6"
+    ]
+   },
+   "explanation": {
+    "text": "After Black played A8 on move 138 White was at 100.0% and H3 keeps 100.0% with 0.0% loss, so H3 is the engine's best candidate. H3 has 61.4% prior with +123.5 score lead and 89 visits, ahead of D5 with +118.9 among 7 admissible moves, and with instructiveness of 3.35 this tactical position is one a player about 10k would value much less than the engine does.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 434,
+    "completion_tokens": 999,
+    "cost_usd": 0.00478825,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "What is the idea behind H3, and what should I watch for next?",
+    "text": "H3 is the engine's top choice with 61.4 percent prior and 89 visits, keeping a 100.0 percent winrate for you with a 123.5 point lead and zero loss. The idea is to take the simple solid point that keeps everything settled while preserving that decisive lead. After H3 watch for Black D6 as the engine reply. Stay calm and solid next and do not give any unnecessary chances since the position remains 100.0 percent.",
+    "prompt_tokens": 4540,
+    "completion_tokens": 1682,
+    "cost_usd": 0.0128235,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"H3\"}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"H3\"]}"
+     }
+    ],
+    "variations": [
+     [
+      "H3"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e6",
+   "game": "ogs-85680630",
+   "ply": 132,
+   "phase": "middle",
+   "declared_rank": "9k",
+   "board": "132 moves played, B to play, last move W K2, captured B 6 W 2\n   A B C D E F G H J K L M N O P Q R S T\n19 . . . . O . . . . . . . . . . . . . . 19\n18 . . . O X O O O X X X . . . . O . O . 18\n17 . . . O X O X X . . . X X X X X O . . 17\n16 . . O O X X X O X + X O O O X X X O . 16\n15 . . O X . . . . X . X O . . O X X O . 15\n14 . . O X . . . . . X X O O O O O O O . 14\n13 . . . X . . . . . . . X X . . O X X . 13\n12 . . O O X . . . . . . . . . . O X . . 12\n11 . . . . . . . . . . . . . . . . X . . 11\n10 . . . + . . . . . + . . . . . O O X . 10\n 9 . . . . . . . . . . . . . O . O X . .  9\n 8 . . . . . . . . . . . . X X O X X . .  8\n 7 . . . . . . . . . . . . . . O X . . .  7\n 6 . . O . . . . . . . . . X O . O . . .  6\n 5 . . O X . . . . X O . O X O . . O O .  5\n 4 . . . O X X . . X O O X X X O O X X .  4\n 3 . . . O O X . . X O X O . X . X O X .  3\n 2 . . . . . . . . .(O)X O . . . X . X .  2\n 1 . . . . . . . . . . . . . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "B",
+   "choice": {
+    "move": "S7",
+    "engine_top": "S7",
+    "value_loss": 0.0,
+    "position_class": "tactical",
+    "admissible": [
+     "S7",
+     "K6",
+     "S8"
+    ]
+   },
+   "explanation": {
+    "text": "After White played K2 with Black to play at move 133 in a tactical position with 0.7 percent for Black, Sensei played S7 with 0.0 percent loss against the engine's best move. S7 has prior 24.4 percent and winrate 0.8 percent with score lead minus 9.3 and 110 visits, and instructiveness 1.49 is positive for a learner of about 9k. Compared with the other candidates, K6 has prior 61.4 percent with winrate 0.5 percent and 43 visits, while S8 has prior 4.7 percent, D11 has prior 2.1 percent and J2 has prior 0.5 percent.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 434,
+    "completion_tokens": 1871,
+    "cost_usd": 0.00849425,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "What is the idea behind S7, and what should I watch for next?",
+    "text": "S7 is the engine's best move here with about 0.8 percent winrate for you, slightly ahead of K6, so the idea is to stay active on the lower edge and make White prove the capture. Watch for White's K6 next as the engine's expected reply, since after S7 you are still behind by about 9 points and need to read carefully how White solidifies and removes your follow up chances.",
+    "prompt_tokens": 4539,
+    "completion_tokens": 2324,
+    "cost_usd": 0.01555075,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"S7\"}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"S7\"]}"
+     }
+    ],
+    "variations": [
+     [
+      "S7"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e7",
+   "game": "ogs-75402568",
+   "ply": 162,
+   "phase": "end",
+   "declared_rank": "3k",
+   "board": "162 moves played, B to play, last move W Q17, captured B 0 W 2\n   A B C D E F G H J K L M N O P Q R S T\n19 . . . . . . . . . . . . . . . . . . . 19\n18 . . X X . X . . . . . . . . . . . . . 18\n17 . . X O . X O O . . . . . X .(O)X O . 17\n16 . . O O . O . . . X . . . . . X O O . 16\n15 . . . . O . . . . . . . . . . X X O . 15\n14 . . X X . . . . X . . . . . . X O . . 14\n13 . . X O O O . . . . . . . . X O O . . 13\n12 . . . X O O X X . . . . . O X X O . . 12\n11 . . . X X O O X . . . . X X O O . . . 11\n10 . . X O O O O O X X . . . X X O O . . 10\n 9 . . X . . . X O O X . . . . O X O . .  9\n 8 . . . X O O . X X O X . . . X X X O .  8\n 7 . . . X X O . X O O X . . X X O O . .  7\n 6 . . O . X O O O O X . . O X O X . O .  6\n 5 . . . O X X O O O X . X X O . X X X .  5\n 4 . . . O X X X X O X X X O X X X O . .  4\n 3 . . . O . X O X X O O X O X O X O X .  3\n 2 . . . . . . O O O . . O O O O O X O .  2\n 1 . . . . . . . . . . . . . . . O . O .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "B",
+   "choice": {
+    "move": "G15",
+    "engine_top": "P17",
+    "value_loss": 0.0,
+    "position_class": "tactical",
+    "admissible": [
+     "P17",
+     "P16",
+     "G15",
+     "E2"
+    ]
+   },
+   "explanation": {
+    "text": "On move 163 after White played Q17 Black was at 2.0 percent winrate and Sensei played G15. G15 has winrate 2.6 percent with prior 8.5 percent and 32 visits, compared with the most preferred P17 with prior 64.7 percent winrate 2.0 percent and 93 visits, and the value loss is 0.0 percent among 4 admissible moves. With instructiveness 0.56 this tactical position makes G15 good to learn from because a player about 3k would be less likely to play it.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 434,
+    "completion_tokens": 1213,
+    "cost_usd": 0.00569775,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "Why did you play G15 instead of P17? Show me what happens after P17.",
+    "text": "I played G15 because the engine rates it at 2.6 percent for Black against 2.0 percent for P17, so P17 loses 0.6 percent. I have shown P17 on your board where after it Black is at 1.9 percent with a score lead of minus 11.6 for Black. White then answers powerfully with B15, which is 98.2 percent for White.",
+    "prompt_tokens": 2882,
+    "completion_tokens": 1098,
+    "cost_usd": 0.008269,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"P17\"}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"P17\"]}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     }
+    ],
+    "variations": [
+     [
+      "P17"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e8",
+   "game": "ogs-87526519",
+   "ply": 177,
+   "phase": "end",
+   "declared_rank": "1d",
+   "board": "177 moves played, W to play, last move B F3, captured B 2 W 8\n   A B C D E F G H J K L M N O P Q R S T\n19 . O . . . . . . . . . . . . . . . . . 19\n18 . O X X . . . . . . . . . . . . . . . 18\n17 . O O X . . . . . X X X . . . O . . . 17\n16 . O X X . . . . . + O X O O O O O . . 16\n15 . O O X . . . . X . O O X X X X X O . 15\n14 O O X . X . . . . X O X X O . X O O . 14\n13 O X X . O . O X O X O X X X X O . O O 13\n12 X . . . . . . . X . X O O X O . . . . 12\n11 . X . O . . . O X . X O O O O O O O . 11\n10 . . X X O . O X O + X X . . X X O . O 10\n 9 . O . . X O X X O . . . X X . . O . .  9\n 8 . . O O X . X O . O . O . O X . O X .  8\n 7 . O X . . . X O . . . . . O X . O X .  7\n 6 . X . X . X . X O O O O . O X . O O X  6\n 5 . . . . . . X X X X X . X O . X O . O  5\n 4 . O O O . . O O . + . . . O O X X O .  4\n 3 . . X . .(X). . O . X . . O X X X O O  3\n 2 . . . . . . . . . . . . . . O X . X X  2\n 1 . . . . . . . . . . . . . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "W",
+   "choice": {
+    "move": "D7",
+    "engine_top": "F4",
+    "value_loss": 0.0,
+    "position_class": "tactical",
+    "admissible": [
+     "F4",
+     "D7"
+    ]
+   },
+   "explanation": {
+    "text": "After Black played F3 White to play was at 97.7 percent, and D7 keeps 97.8 percent with score lead plus 10.5 for White to move. That compares with the best candidate F4 at 97.7 percent and plus 9.8, so the value loss is 0.0 percent and both are the 2 admissible moves. F4 had prior 71.6 percent and 121 visits against 19.7 percent and 75 visits for D7, which fits the instructiveness of 0.65 for a player of about 1d.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 434,
+    "completion_tokens": 1073,
+    "cost_usd": 0.00510275,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "Why did you play D7 instead of F4? Show me what happens after F4.",
+    "text": "Actually D7 and F4 are almost identical here, D7 gives White 97.8 percent winrate for about 10.5 points and F4 gives 97.7 percent for about 9.8 points so the loss is only 0.1. I have shown F4 on the board where you still keep 98.2 percent and about 10.2 points for White and Black's reply is D3. So F4 was also good and the most natural looking move, D7 was just a tiny bit more solid in score.",
+    "prompt_tokens": 2883,
+    "completion_tokens": 1140,
+    "cost_usd": 0.00844875,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"F4\"}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"F4\"]}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     }
+    ],
+    "variations": [
+     [
+      "F4"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e9",
+   "game": "ogs-88898324",
+   "ply": 121,
+   "phase": "only_move_candidate",
+   "declared_rank": "10k",
+   "board": "121 moves played, W to play, last move B B6, captured B 1 W 7\n   A B C D E F G H J K L M N O P Q R S T\n19 . X X O O . . . . . . . . . . . . . . 19\n18 . X O O . O X . . . . . . X X O O O . 18\n17 . X X O O X . . . . . X X O O X O . O 17\n16 X O X O . X . . . X X O O O O X X O O 16\n15 O . O X X . . . . . X O . O X X O . . 15\n14 . O O . . O . . . . . . . X . X O O O 14\n13 . . . O . . . . . . . X . . . X X X . 13\n12 . . . O . . . . . . . . . . . . . . . 12\n11 X X X O X . . . . . . . . . . . . . . 11\n10 O O O X . . . . . + . . . . . + . . . 10\n 9 O . O X . . . . . . . . . . . . . . .  9\n 8 . O X X . . . . . . . . . . . . . . .  8\n 7 . X O X . . . . . . . . . . . . . . .  7\n 6 .(X)O X . . . . . . . . . . . X . . .  6\n 5 . . . O . . O . X . . X O O . . . . .  5\n 4 . . . O . . . . . + . O O X X X . . .  4\n 3 . . . . . . O X X O O . O O . . X . .  3\n 2 . . . . . . . . . X X O . X . O O . .  2\n 1 . . . . . . . . . . . . . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "W",
+   "choice": {
+    "move": "C5",
+    "engine_top": "C5",
+    "value_loss": 0.0,
+    "position_class": "tactical",
+    "admissible": [
+     "C5"
+    ]
+   },
+   "explanation": {
+    "text": "After B6 I played C5 in this tactical position on move 122. C5 has 0.0 percent value loss and keeps the winrate at 3.7 percent, so it is the engine's best candidate with 91.2 percent prior and 193 visits and the 1 admissible move. It is instructive at 0.11 for a 10k learner because the other candidates are lower at N18 with 1.1 percent winrate and 4 visits, P19 with 0.9 percent winrate and 2 visits, and M14 with 1.5 percent winrate and 1 visit.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 406,
+    "completion_tokens": 1375,
+    "cost_usd": 0.00635125,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "What is the idea behind C5, and what should I watch for next?",
+    "text": "C5 is by far the engine's top choice with 91.2 percent prior and zero loss, though the position stays very difficult for White at 3.7 percent winrate and minus 9.2 points. The idea is to hang on and force the least bad continuation rather than collapse immediately. After C5 you should watch for Black B15 next, which the engine already wants to answer with to keep you suppressed.",
+    "prompt_tokens": 4449,
+    "completion_tokens": 1911,
+    "cost_usd": 0.013683,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"C5\"}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"C5\"]}"
+     }
+    ],
+    "variations": [
+     [
+      "C5"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  },
+  {
+   "id": "e10",
+   "game": "ogs-68278207",
+   "ply": 55,
+   "phase": "only_move_candidate",
+   "declared_rank": "7k",
+   "board": "55 moves played, W to play, last move B E13, captured B 0 W 2\n   A B C D E F G H J K L M N O P Q R S T\n19 . O . O . . . . . . . . . . . . . . . 19\n18 . X O O O . . . . . . . . . . . . . . 18\n17 X . X O . O O . . . . . . . X . . . . 17\n16 X O X X O . . . . + . . . . . + X . . 16\n15 . X X O X . . . . . . . . . . . . . . 15\n14 O X O O O . . . . . . . . . . . . . . 14\n13 . O X X(X). . . . . . . . . . . . . . 13\n12 . O . . . . . . . . . . . . . . . . . 12\n11 . . O . . . . . . . . . . . . . . . . 11\n10 . . . + . . . . . + . . . . . + . . . 10\n 9 . . X . . . . . . . . . . . . . . . .  9\n 8 . . . . . . . . . . . . . . . . . . .  8\n 7 . . . . . . . . . . . . . . . . X . .  7\n 6 . . X X . . . . . . . . . . . . . . .  6\n 5 . . O . . . . . . . . . . . . O . X .  5\n 4 . . . O O O . . . + . . . . . + O . .  4\n 3 . . . . X O X . . X . . X . X X O . .  3\n 2 . . . . . . . . . . . . . . . O . . .  2\n 1 . . . . . . . . . . . . . . . . . . .  1\n   A B C D E F G H J K L M N O P Q R S T",
+   "to_move": "W",
+   "choice": {
+    "move": "F14",
+    "engine_top": "F14",
+    "value_loss": 0.0,
+    "position_class": "only_move",
+    "admissible": [
+     "F14"
+    ]
+   },
+   "explanation": {
+    "text": "On move 56 after Black E13 with White at 97.7% winrate, F14 kept the winrate at 97.8% with 0.0% loss as the only admissible move. F14 is the engine's best candidate with 86.3% prior, 180 visits and +12.7 score lead, compared to F15 with 13.6% prior, 20 visits, 95.5% winrate and +9.5 lead. With instructiveness of 0.18 for a player about 7k, F14 is a good move to learn.",
+    "model": "muse-spark-1.3",
+    "prompt_tokens": 351,
+    "completion_tokens": 1182,
+    "cost_usd": 0.00546225,
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   },
+   "ask": {
+    "question": "What is the idea behind F14, and what should I watch for next?",
+    "text": "F14 is the engine's clear top choice for you with about 97.8 percent winrate and a 12.7 point lead, so it keeps your large advantage while keeping the position simple. The idea is to play solidly rather than push harder with F15, which drops to 95.5 percent and 9.5 points. After F14 the engine expects Black to try D11 next. Watch for that reply and answer calmly to keep your lead instead of chasing extra profit.",
+    "prompt_tokens": 4280,
+    "completion_tokens": 1489,
+    "cost_usd": 0.01167825,
+    "tool_calls": [
+     {
+      "name": "analyze_position",
+      "arguments": "{\"top_k\":5}"
+     },
+     {
+      "name": "get_learner_profile",
+      "arguments": "{}"
+     },
+     {
+      "name": "evaluate_move",
+      "arguments": "{\"move\":\"F14\"}"
+     },
+     {
+      "name": "show_variation",
+      "arguments": "{\"moves\":[\"F14\"]}"
+     }
+    ],
+    "variations": [
+     [
+      "F14"
+     ]
+    ],
+    "guard": {
+     "regenerated": false,
+     "dropped": [],
+     "ungrounded": []
+    }
+   }
+  }
+ ]
+}
