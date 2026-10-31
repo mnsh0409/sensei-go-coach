@@ -7,6 +7,7 @@ C3 is a closed-loop simulation with assumed learning dynamics, not a human study
 
 | Claim | Pilot | n | Estimate | CI | Success | Headline | Commit | Dirty | Finished | File |
 |---|---|---|---|---|---|---|---|---|---|---|
+| C1 | no | 400 | -12.17 | 95% [-45.42, 20.87] | PASS | score rate vs raw engine = 0.5175 [0.47, 0.565] | 5ef3771 | no | 2026-10-31T01:21:07+08:00 | `C1_20261031-000756.json` |
 | C1 | yes | 120 | 0 | 95% [-127, 127] | n/a | epsilon* = 0.01 | 5720fe8 | yes | 2026-10-30T18:04:29+08:00 | `pilot_C1_20261030-174507.json` |
 | C1 | yes | 120 | 34.86 | 95% [-52.51, 147.2] | n/a | epsilon* = 0.01 | c4aae8f | no | 2026-10-30T18:26:46+08:00 | `pilot_C1_20261030-180727.json` |
 
