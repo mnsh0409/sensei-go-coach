@@ -4,6 +4,9 @@ A token is `{{<source>.<path>[:<format>]}}`:
 
 - <source> names a result: `C1`, `C2`, `C3` (the most recent CLEAN confirmatory file `results/<claim>_*.json`) or
   `pilot_C1` (the most recent clean pilot). Clean means `git_dirty` is false and `git_commit` is a real commit.
+  A DERIVED source is a descriptive file computed from a claim's result: `C2base` is
+  `results/relevance_baselines.json` (eval/relevance_baselines.py), which resolves only when it is clean and was
+  computed from the very file the `C2` source resolves to (same name and SHA-256).
 - <path> is an alias from ALIASES (the names in poster/TOKENS.md) or a dotted path into the result JSON
   (`estimate`, `ci.1`, `details.summary.score`, `hardware.gpu`).
 - <format> is a Python format spec (`.1f`, `,`, `.0%`); an alias brings its own default.
@@ -14,6 +17,7 @@ null value raises TokenError naming the token.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping
@@ -26,6 +30,8 @@ RESULTS_DIR = ROOT / "results"
 TOKEN_RE = re.compile(r"\{\{\s*([A-Za-z_]\w*)\.([\w.]+?)(?::([^{}]*?))?\s*\}\}")
 BLOCK_RE = re.compile(r"<!--\s*results\s*-->(.*?)<!--\s*/results\s*-->", re.DOTALL)
 SOURCES = {"C1": ("C1", False), "C2": ("C2", False), "C3": ("C3", False), "pilot_C1": ("C1", True)}
+DERIVED: dict[str, tuple[str, str]] = {"C2base": ("relevance_baselines.json", "C2")}
+"""Descriptive result files: token source -> (file name in results/, the source it was computed from)."""
 
 
 class TokenError(ValueError):
@@ -45,6 +51,24 @@ def _verdict(r: Mapping[str, Any]) -> str:
     if r.get("success") is None:
         raise KeyError("success")
     return "pass" if r["success"] else "fail"
+
+
+def _rise_verdict(path: str) -> Callable[[Mapping[str, Any]], str]:
+    """How a ratio of ratios compares with 1, from its CI (never typed by hand): "faster than", "slower than" or
+    "at a rate not distinguishable from"."""
+
+    def get(r: Mapping[str, Any]) -> str:
+        ci = lookup(r, path)["ci"]
+        if not ci:
+            raise KeyError(path)
+        lo, hi = float(ci[0]), float(ci[1])
+        if lo > 1.0:
+            return "faster than"
+        if hi < 1.0:
+            return "slower than"
+        return "at a rate not distinguishable from"
+
+    return get
 
 
 Alias = tuple[str | Callable[[Mapping[str, Any]], Any], str]
@@ -89,6 +113,30 @@ ALIASES: dict[str, dict[str, Alias]] = {
         "eps": ("epsilon", "g"),
         "ci_pct": (lambda r: 100.0 * float(r["config"]["C2"]["ci"]), ".0f"),
         "verdict": (_verdict, ""),
+        "commit": ("git_commit", ""),
+    },
+    "C2base": {
+        "lesson_x": ("adjacent.lesson_ratio_gmean.estimate", ".2f"),
+        "best_x": ("adjacent.best_ratio_gmean.estimate", ".2f"),
+        "rand_x": ("adjacent.rand_ratio_gmean.estimate", ".2f"),
+        "lesson_over_rand": ("adjacent.lesson_over_rand_gmean.estimate", ".2f"),
+        "lesson_over_rand_lo": ("adjacent.lesson_over_rand_gmean.ci.0", ".2f"),
+        "lesson_over_rand_hi": ("adjacent.lesson_over_rand_gmean.ci.1", ".2f"),
+        "lesson_vs_rand": (_rise_verdict("adjacent.lesson_over_rand_gmean"), ""),
+        "lesson_gain_pct": (_pct("adjacent.lesson_diff_mean.estimate"), ".1f"),
+        "best_gain_pct": (_pct("adjacent.best_diff_mean.estimate"), ".1f"),
+        "rand_gain_pct": (_pct("adjacent.rand_diff_mean.estimate"), ".1f"),
+        "not_best_gain_pct": (_pct("adjacent.lesson_not_best_diff_mean.estimate"), ".1f"),
+        "not_best_share_pct": (_pct("not_best_share"), ".0f"),
+        "weakest_band": ("bands.0", ""),
+        "strongest_band": ("bands.-1", ""),
+        "weakest_lesson_own_pct": (_pct("rates.lesson.0.0.estimate"), ".1f"),
+        "weakest_lesson_strongest_pct": (_pct("rates.lesson.0.-1.estimate"), ".1f"),
+        "best_weakest_pct": (_pct("rates.best.0.estimate"), ".1f"),
+        "best_strongest_pct": (_pct("rates.best.-1.estimate"), ".1f"),
+        "rand_weakest_pct": (_pct("rates.rand.0.estimate"), ".1f"),
+        "rand_strongest_pct": (_pct("rates.rand.-1.estimate"), ".1f"),
+        "ci_pct": (lambda r: 100.0 * float(r["bootstrap"]["ci"]), ".0f"),
         "commit": ("git_commit", ""),
     },
     "C3": {
@@ -153,13 +201,39 @@ class Resolver:
         """source -> result file name, for the generated-file header."""
 
     def result(self, source: str) -> dict[str, Any]:
+        if source in DERIVED:
+            if source not in self._cache:
+                self._cache[source] = self._derived(source)
+                self.files[source] = self._cache[source][0].name
+            return self._cache[source][1]
         if source not in SOURCES:
-            raise TokenError(f"unknown token source {source!r}; known: {', '.join(SOURCES)}")
+            raise TokenError(f"unknown token source {source!r}; known: {', '.join([*SOURCES, *DERIVED])}")
         if source not in self._cache:
             claim, pilot = SOURCES[source]
             self._cache[source] = latest_clean(self.results_dir, claim, pilot)
             self.files[source] = self._cache[source][0].name
         return self._cache[source][1]
+
+    def _derived(self, source: str) -> tuple[Path, dict[str, Any]]:
+        """A descriptive file: clean, and computed from the very file its parent source resolves to."""
+        name, parent = DERIVED[source]
+        path = self.results_dir / name
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as err:
+            raise TokenError(f"{source}: cannot read {path} ({type(err).__name__}); run its script first") from err
+        if not isinstance(data, Mapping) or not is_clean(data):
+            raise TokenError(f"{source}: {name} is not from a clean git commit (git_dirty false and a real commit)")
+        self.result(parent)
+        parent_path = self._cache[parent][0]
+        origin = data.get("source") if isinstance(data.get("source"), Mapping) else {}
+        digest = hashlib.sha256(parent_path.read_bytes()).hexdigest()
+        if origin.get("file") != parent_path.name or origin.get("sha256") != digest:
+            raise TokenError(
+                f"{source}: {name} was computed from {origin.get('file')}, not from the latest clean {parent} result "
+                f"{parent_path.name}: rerun its script"
+            )
+        return path, dict(data)
 
     def value(self, source: str, path: str, fmt: str | None) -> str:
         token = f"{{{{{source}.{path}{':' + fmt if fmt is not None else ''}}}}}"

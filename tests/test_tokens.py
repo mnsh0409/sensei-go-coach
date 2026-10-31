@@ -132,6 +132,82 @@ def test_repo_templates_type_no_numbers_in_results_blocks():
         for block in blocks:
             assert tokens.literal_numbers(block) == [], f"{name}: numbers typed by hand in a results block"
         for source, path_, _ in tokens.TOKEN_RE.findall(text):
-            assert source in tokens.SOURCES, f"{name}: unknown token source {source}"
+            assert source in tokens.SOURCES or source in tokens.DERIVED, f"{name}: unknown token source {source}"
             if "." not in path_:
                 assert path_ in tokens.ALIASES.get(source, {}) or path_ in ("estimate", "n", "ci", "epsilon")
+
+
+def baselines_file(c2_path: Path, *, dirty: bool = False, sha: str | None = None, file: str | None = None) -> dict:
+    """A minimal results/relevance_baselines.json pointing at a C2 result file."""
+    import hashlib
+
+    def stat(est, lo=None, hi=None):
+        return {"estimate": est, "ci": None if lo is None else [lo, hi]}
+
+    return {
+        "kind": "relevance_baselines",
+        "descriptive": True,
+        "git_commit": "def5678",
+        "git_dirty": dirty,
+        "source": {
+            "file": file or c2_path.name,
+            "sha256": sha or hashlib.sha256(c2_path.read_bytes()).hexdigest(),
+        },
+        "bootstrap": {"ci": 0.95},
+        "bands": ["15k-10k", "9k-5k", "4k-1k", "1d-3d"],
+        "rates": {
+            "lesson": [[stat(0.034), stat(0.046), stat(0.05), stat(0.061)], [None, stat(0.042), None, None],
+                       [None, None, stat(0.05), None], [None, None, None, stat(0.038)]],
+            "best": [stat(0.118), stat(0.15), stat(0.174), stat(0.236)],
+            "rand": [stat(0.084), stat(0.122), stat(0.12), stat(0.172)],
+        },
+        "not_best_share": 0.712,
+        "adjacent": {
+            "lesson_ratio_gmean": stat(1.224),
+            "best_ratio_gmean": stat(1.26),
+            "rand_ratio_gmean": stat(1.267),
+            "lesson_over_rand_gmean": stat(0.967, 0.71, 1.31),
+            "lesson_diff_mean": stat(0.01),
+            "best_diff_mean": stat(0.039),
+            "rand_diff_mean": stat(0.029),
+            "lesson_not_best_diff_mean": stat(0.0043),
+        },
+    }  # fmt: skip
+
+
+def test_derived_c2base_source(tmp_path):
+    res = write_results(tmp_path / "results", result("C2", "20261031-134717", estimate=0.01, ci=[0.0003, 0.0195]))
+    c2_path = res / "C2_20261031-134717.json"
+    (res / "relevance_baselines.json").write_text(json.dumps(baselines_file(c2_path)), encoding="utf-8")
+    r = tokens.Resolver(res)
+    text = (
+        "{{C2base.best_x}} {{C2base.rand_x}} {{C2base.lesson_x}}, {{C2base.lesson_vs_rand}} random "
+        "({{C2base.lesson_over_rand}}, {{C2base.ci_pct}}% CI {{C2base.lesson_over_rand_lo}} to "
+        "{{C2base.lesson_over_rand_hi}}); {{C2base.weakest_band}} {{C2base.weakest_lesson_own_pct}}% to "
+        "{{C2base.strongest_band}} {{C2base.weakest_lesson_strongest_pct}}%; best {{C2base.best_weakest_pct}}% to "
+        "{{C2base.best_strongest_pct}}%; {{C2base.not_best_share_pct}}% {{C2base.best_gain_pct}}"
+    )
+    assert r.render(text) == (
+        "1.26 1.27 1.22, at a rate not distinguishable from random (0.97, 95% CI 0.71 to 1.31); 15k-10k 3.4% to "
+        "1d-3d 6.1%; best 11.8% to 23.6%; 71% 3.9"
+    )
+    assert r.files == {"C2": "C2_20261031-134717.json", "C2base": "relevance_baselines.json"}
+
+    def fresh(data: dict) -> tokens.Resolver:
+        (res / "relevance_baselines.json").write_text(json.dumps(data), encoding="utf-8")
+        return tokens.Resolver(res)
+
+    faster = baselines_file(c2_path)
+    faster["adjacent"]["lesson_over_rand_gmean"] = {"estimate": 1.6, "ci": [1.2, 2.1]}
+    assert fresh(faster).render("{{C2base.lesson_vs_rand}}") == "faster than"
+    with pytest.raises(tokens.TokenError, match="not from a clean"):
+        fresh(baselines_file(c2_path, dirty=True)).render("{{C2base.best_x}}")
+    with pytest.raises(tokens.TokenError, match="rerun"):
+        fresh(baselines_file(c2_path, sha="0" * 64)).render("{{C2base.best_x}}")  # the C2 file changed since
+    stale = baselines_file(c2_path)
+    write_results(res, result("C2", "20261101-090000", estimate=0.02, ci=[0.001, 0.03]))  # a newer clean C2
+    with pytest.raises(tokens.TokenError, match="not from the latest clean C2"):
+        fresh(stale).render("{{C2base.best_x}}")
+    (res / "relevance_baselines.json").unlink()
+    with pytest.raises(tokens.TokenError, match="cannot read"):
+        tokens.Resolver(res).render("{{C2base.best_x}}")

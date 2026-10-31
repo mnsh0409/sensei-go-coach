@@ -95,3 +95,12 @@ the selector's reliable alternatives come from.
 | `c2_relevance.py` | T8 | uplift U (primary): each bootstrap resample draws games with replacement within every band, then recomputes every U_k and U; D_best and D_rand (secondary) per band with `cluster_bootstrap_ci` |
 | `c3_curriculum.py` | T8 | the simulation with all five policies; no engine needed |
 | `tokens.py` | T10 | `{{token}}` resolution from clean results for the README, the video script and the poster |
+| `relevance_baselines.py` | after T8 | descriptive context for C2 (not a claim, added after C2 ran): `python -m eval.relevance_baselines` writes `results/relevance_baselines.json` and `.md` from the latest clean C2 result, comparing the lesson's cross-band rates with the engine's best move and a random admissible move, and (with KataGo) the lesson for every weaker band on every stronger band's positions; token source `C2base` |
+
+## Descriptive results
+
+Files in `results/` without a `claim` field are descriptive: they record `git_commit` and `git_dirty` but carry no
+success criterion, and `results/SUMMARY.md` lists them only by name (`learner_check.json`, `topics_v1.json`,
+`explanations_v1.json`, `relevance_baselines.json`). Only `relevance_baselines.json` feeds the README, through the
+`C2base` token source, which resolves only when the file is clean and was computed from the latest clean C2 result
+(same name and SHA-256).

@@ -57,10 +57,22 @@ rendered from a result file in `results/` written by `eval/run.py` from a clean 
 C1 ran {{C1.queries}} engine searches in {{C1.hours}} hours on one {{C1.gpu}} with {{C1.conc}} games in flight.
 Deviations from the pre-registration, each listed with its reason in the result file: C1 {{C1.n_deviations}},
 C2 {{C2.n_deviations}}, C3 {{C3.n_deviations}}.
+
+C2 in context (descriptive, added after C2 ran, not pre-registered; `eval/relevance_baselines.py`): from one band
+to the next, players play the engine's best move {{C2base.best_x}} times as often and a random admissible move
+{{C2base.rand_x}} times as often. Sensei's lesson is played {{C2base.lesson_x}} times as often, rising
+{{C2base.lesson_vs_rand}} a random admissible move (ratio {{C2base.lesson_over_rand}}, {{C2base.ci_pct}}% CI
+{{C2base.lesson_over_rand_lo}} to {{C2base.lesson_over_rand_hi}}). The lesson Sensei picks for
+{{C2base.weakest_band}} players is played by {{C2base.weakest_lesson_own_pct}}% of them and by
+{{C2base.weakest_lesson_strongest_pct}}% of {{C2base.strongest_band}} players; over the same range the engine's best
+move goes from {{C2base.best_weakest_pct}}% to {{C2base.best_strongest_pct}}%.
 <!-- /results -->
 
 C1 asks how much playing strength Sensei gives up by teaching instead of winning. C2 asks whether the moves
-Sensei would teach a band of players are moves that the next stronger band actually plays. C3 is a closed-loop
+Sensei would teach a band of players are moves that the next stronger band actually plays; its pre-registered
+test compares that rate with zero. Stronger players play good moves more often in general, so the context
+paragraph compares the lesson with the engine's best move and with a random admissible move on the same
+positions, which shows how much of the uplift is specific to Sensei's choice. C3 is a closed-loop
 simulation with assumed learning dynamics: it shows that the curriculum finds and targets weaknesses under those
 dynamics, not that people learn faster.
 
