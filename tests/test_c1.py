@@ -384,8 +384,10 @@ def test_pilot_then_confirmatory_through_eval_run(tmp_path, fake_engine, monkeyp
     conf = json.loads(conf_path.read_text(encoding="utf-8"))
     assert conf["epsilon"] == details["epsilon_star"] and conf["n"] == 4
     assert isinstance(conf["success"], bool) and len(conf["ci"]) == 2
-    assert conf["details"]["epsilon_star_source"] == {"file": pilot_path.name, "clean": False}
-    assert any(d["field"] == "epsilon" and "dirty" in d["reason"] for d in conf["deviations"])
+    # clean means the pilot file records a clean git tree: false on a dev machine, true on a fresh CI checkout
+    assert conf["details"]["epsilon_star_source"] == {"file": pilot_path.name, "clean": not pilot["git_dirty"]}
+    dirty_note = any(d["field"] == "epsilon" and "dirty" in d["reason"] for d in conf["deviations"])
+    assert dirty_note == pilot["git_dirty"]  # a pilot from a dirty tree is logged as a deviation
     assert conf["details"]["summary"]["n_games"] == 4
     summary = (results / "SUMMARY.md").read_text(encoding="utf-8")
     assert "| C1 | yes | 12 |" in summary and "| C1 | no | 4 |" in summary
