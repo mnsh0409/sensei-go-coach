@@ -123,7 +123,8 @@ the current target topic. The game result comes from the sign of the main net's 
   - `evaluate_move(move: str)`: the engine's evaluation of one legal move (where, winrate and score lead after it,
     its loss against the engine's top move, meaning its most-searched candidate, what it does to the stones next to
     it, `if_not_played`: what the other side would play within 4 points of it if the side to move passed, and
-    `worth_vs_pass_points`, and `forcing_exchange`).
+    `worth_vs_pass_points`, and `forcing_exchange`). Since v4.2 a move already on the board is evaluated in the
+    position just before it was played, with `already_played` (move number, who played it).
   - `show_variation(moves: list[str])`: replays the moves with `GoGame` from the current position, rejecting
     illegal ones, returns the engine's evaluation of the end position; the UI draws the sequence.
   - `get_learner_profile()`: rank estimate, top weakness topics, current target topic.

@@ -297,13 +297,15 @@ def test_ask_about_the_learner_answers_from_the_profile(env):
     assert [c["name"] for c in body["tool_calls"]][-1] == "get_learner_profile"
 
 
-def test_ask_about_an_illegal_point_says_so(env):
+def test_ask_about_an_occupied_point_says_it_is_already_on_the_board(env):
+    # Explainer v4.2: a move already played is evaluated in the position just before it.
     learner = "t_ask4"
     new_game(env, learner)
     point, _ = play_free_point(env, learner)
     body = env.client.post("/api/ask", json={"learner_id": learner, "question": f"What about {point}?"}).json()
-    assert "not a legal move" in body["text"]
-    assert any(c["error"] for c in body["tool_calls"])
+    assert f"{point} is already on the board (move 1); in the position just before it:" in body["text"]
+    assert body["variations"] == []
+
 
 
 def test_asks_are_kept_in_the_state_history(env):

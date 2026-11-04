@@ -12,8 +12,8 @@ checked against the engine's own numbers before it reaches the screen.
    the position type (only move, tactical or strategic) and the strength the move cost against the engine's best.
 3. After each of your moves, Sensei checks it with the engine. A mistake in your current weakness topic gets an
    immediate explanation; other mistakes are logged for the summary.
-4. Ask Sensei anything about the position ("why not D4?", "what if I cut here?"). The model answers by calling
-   engine tools, and every variation it mentions is drawn on the board.
+4. Ask Sensei anything about the position ("why did you play Q5?", "why not D4?", "what if I cut here?"). The
+   model answers by calling engine tools, and every variation it mentions is drawn on the board.
 5. At the end: the result, your estimated rank with its uncertainty, your two weakest topics with an example
    each, and the topic the next game will train.
 
@@ -119,7 +119,8 @@ Every game is recorded to `sessions/`; replay mode needs neither a GPU nor an AP
   coordinates, not reasoning.
 - Explanation quality was graded by one player, the author (2d to 4d), on the ten explainer positions, not blind;
   the explainer passed the bar set before grading only after several revisions of the facts it is given
-  (`results/explanations_*_grades.md` holds every grade and note).
+  (`results/explanations_*_grades.md` holds every grade and note). The graded version is v4.1; the submitted v4.2
+  changes only Ask Sensei (questions about moves already played) and was checked on one recorded game, not graded.
 - In a decided game every move keeps the win, so the winrate bound lets Sensei play a move several points worse
   than the engine's top move; the explanation then says the top move is better for points.
 - An explanation and an Ask Sensei answer come from separate engine searches and can name different likely replies.

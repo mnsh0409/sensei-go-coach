@@ -374,8 +374,10 @@ def test_evaluate_move_handles_illegal_and_non_candidate_moves(tmp_path):
     ex, engine, game = make(FakeClient(), tmp_path)
     pos = root_position()
     assert "error" in ex.tool_evaluate_move(pos, "Z99")
-    occupied = game.play(pos, "Q16")
-    assert "error" in ex.tool_evaluate_move(occupied, "Q16")
+    # (v4.2) a move already on the board is evaluated in the position just before it: checked on a fresh explainer
+    other, _engine, _game = make(FakeClient(), tmp_path)
+    again = other.tool_evaluate_move(game.play(pos, "Q16"), "Q16")
+    assert again["move"] == "Q16" and again["already_played"]["move_number"] == 1 and again["for"] == "Black"
     # D4 is legal but not a root candidate: evaluated from the position after it (1 - root value).
     result = ex.tool_evaluate_move(pos, "d4")
     assert result["move"] == "D4" and result["source"].startswith("second query")

@@ -377,6 +377,12 @@ class CannedExplainer(MetaExplainer):
         if "error" in evaluation:
             out.append(str(evaluation["error"]).rstrip(".") + ".")
             return False
+        earlier = evaluation.get("already_played")
+        if earlier:  # explainer v4.2: a move already on the board, evaluated in the position just before it
+            out.append(
+                f"{move} is already on the board (move {earlier['move_number']}); in the position just before it:"
+            )
+            side = str(evaluation.get("for") or side)
         lead = "" if evaluation["score_lead"] is None else f" and a score lead of {evaluation['score_lead']:+.1f}"
         out.append(f"After {move} the engine gives {side} a {evaluation['winrate_pct']:.1f}% winrate{lead}.")
         if evaluation["move"] == evaluation["best_move"]:
@@ -391,6 +397,8 @@ class CannedExplainer(MetaExplainer):
                 f"That is {evaluation['loss_pct']:.1f}% below the engine's best move, {evaluation['best_move']}, "
                 f"which scores {evaluation['best_winrate_pct']:.1f}%."
             )
+        if earlier:
+            return True  # the board has moved on: no variation from the current position
         line = [evaluation["move"]]
         result = call("show_variation", moves=line)
         for _ in range(2):  # the engine's reply, then its reply to that: at most three moves on the board

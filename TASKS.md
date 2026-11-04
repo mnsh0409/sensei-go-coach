@@ -127,7 +127,9 @@ v2 and v3 were the two rounds, v3.1 fixed one wrong fact (the engine's top move)
 reasons (what the learner would play if Sensei passed, connections, rescued groups), because every 3 in the grades
 asked for the purpose of a move and the template carries the same facts as v3.1. If v4 is below 3.5, the template.
 Result (2026-11-04): v4.1 (v4 plus a fix to the facts) graded 3.80, explanations 3.90 and Ask Sensei 3.70
-(`results/explanations_v4.1_grades.md`): T5 passes and the explainer is frozen at v4.1 for the submission. Not done:
+(`results/explanations_v4.1_grades.md`): T5 passes and the explanation prompt is frozen at v4.1 for the submission.
+v4.2 (2026-11-05, approved by the human in chat after a live game) changes Ask Sensei only: questions about moves
+already played, and no tool field names or instruction echo in answers. Not done:
 the entropy thresholds stay at their placeholders (changing them would change the graded texts); disclosed in the
 README limitations.
 
