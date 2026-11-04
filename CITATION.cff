@@ -5,6 +5,7 @@ type: software
 authors:
   - family-names: Ng
     given-names: Siu Hin
+    alias: Martin Ng
 version: 0.1.0
 date-released: 2026-11-05
 license: MIT
