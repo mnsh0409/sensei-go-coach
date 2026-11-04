@@ -126,6 +126,10 @@ v2 and v3 were the two rounds, v3.1 fixed one wrong fact (the engine's top move)
 (`results/explanations_v3.1_grades.md`), below 3.5. Instead of the template, a third round (v4) adds engine-grounded
 reasons (what the learner would play if Sensei passed, connections, rescued groups), because every 3 in the grades
 asked for the purpose of a move and the template carries the same facts as v3.1. If v4 is below 3.5, the template.
+Result (2026-11-04): v4.1 (v4 plus a fix to the facts) graded 3.80, explanations 3.90 and Ask Sensei 3.70
+(`results/explanations_v4.1_grades.md`): T5 passes and the explainer is frozen at v4.1 for the submission. Not done:
+the entropy thresholds stay at their placeholders (changing them would change the graded texts); disclosed in the
+README limitations.
 
 ## T6 Learner model (Oct 30)
 

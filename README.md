@@ -33,7 +33,8 @@ checked against the engine's own numbers before it reaches the screen.
   point is in Go terms ("right side, 2nd line"), and what a move does to the stones around it (captures, ataris,
   liberties, connections, and shapes such as a one-space jump or a knight's move). The reason for a move comes from
   the engine too: one extra search finds what the learner would play there if Sensei passed and what that move would
-  do to Sensei's stones, and how many points Sensei's move is worth against passing. The prompt names Sensei's color
+  do to Sensei's stones, how many points Sensei's move is worth against passing, and, from the engine's own line,
+  whether it is a forcing move that Sensei can play first and still take the top move. The prompt names Sensei's color
   and the learner's, so "I" and "you" always point at the right stones, and it bans engine internals such as policy
   priors and visit counts. A guard rejects any reply that names a board coordinate absent from those facts or the tool
   results: it asks once for a correction, then drops offending sentences, then falls back to a template.
@@ -116,6 +117,13 @@ Every game is recorded to `sessions/`; replay mode needs neither a GPU nor an AP
 - Rank labels come from the game server's scale, which need not match the scale of the HumanSL training data.
 - Explanations can only be as good as the engine numbers they are grounded on, and the guard checks
   coordinates, not reasoning.
+- Explanation quality was graded by one player, the author (2d to 4d), on the ten explainer positions, not blind;
+  the explainer passed the bar set before grading only after several revisions of the facts it is given
+  (`results/explanations_*_grades.md` holds every grade and note).
+- In a decided game every move keeps the win, so the winrate bound lets Sensei play a move several points worse
+  than the engine's top move; the explanation then says the top move is better for points.
+- An explanation and an Ask Sensei answer come from separate engine searches and can name different likely replies.
+- The tactical and strategic labels come from policy-entropy thresholds that were never calibrated.
 - 19x19 only, Chinese rules and komi 7.5 in play.
 
 ## Credits and related work
