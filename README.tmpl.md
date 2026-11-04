@@ -201,5 +201,4 @@ tests/        offline tests (engine and network tests are marked and skipped by 
 
 Sensei's code is released under the [MIT License](LICENSE). KataGo, its networks and the game records are not
 included; they keep their own licenses and sources (`data/SOURCES.md`). To cite Sensei, use
-[`CITATION.cff`](CITATION.cff). The narration of the demo video is a synthetic voice cloned from the author's own
-voice.
+[`CITATION.cff`](CITATION.cff).
