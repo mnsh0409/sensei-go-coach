@@ -231,6 +231,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         SET_PATH.write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
         print(f"wrote {SET_PATH} ({len(data['positions'])} positions)")
     if args.run:
+        import sensei.explainer as explainer_mod
         from sensei.explainer import MetaExplainer
 
         pre = yaml.safe_load((ROOT / "configs" / "prereg.yaml").read_text(encoding="utf-8"))
@@ -250,6 +251,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "git_commit": commit,
             "git_dirty": dirty,
             "model": model,
+            "prompt_version": getattr(explainer_mod, "PROMPT_VERSION", None),
             "epsilon": runtime["play"]["epsilon"],
             "fake_engine": bool(args.fake_engine),
         }

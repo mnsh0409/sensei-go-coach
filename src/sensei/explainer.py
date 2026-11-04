@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from sensei import metaapi
-from sensei.coords import PASS, find_coords
+from sensei.coords import PASS, find_coords, gtp_to_rc, neighbors, rc_to_gtp
 from sensei.interfaces import (
     Candidate,
     Choice,
@@ -49,6 +49,16 @@ LANGUAGE_NAMES = {
     "ja": "Japanese",
 }
 FALLBACK_ASK_TEXT = "Sensei could not finish answering within its tool budget; please ask a narrower question."
+PROMPT_VERSION = "v2"
+"""Version of the explanation and Ask Sensei prompts; recorded with every explanation set (results/explanations_*).
+
+v2 (2026-11-04, after the T5 grading of v1): the prompts name the learner's color and Sensei's ("I" and "you"),
+give no engine internals (prior, visits, instructiveness, admissible set), describe every point in plain Go words
+(`describe_point`), state what a move does to the stones next to it (`local_facts`), and talk in points when one
+side is far ahead. Tool results drop prior and visits and label every number with its side.
+"""
+DECIDED = 0.95
+"""Above this winning chance (or below 1 - DECIDED) the prompts ask for points instead of percentages."""
 
 # ---- tool schemas (OpenAI function-calling format) -------------------------------------------------------------------
 
@@ -58,8 +68,8 @@ TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "analyze_position",
             "description": (
-                "Engine analysis of the current position: the top candidate moves with their policy prior, "
-                "winrate and score lead for the side to move, and their visit counts."
+                "Engine analysis of the current position: the top candidate moves, best first, each with where it is "
+                "on the board, its winning chance and its score lead in points for the side to move ('for')."
             ),
             "parameters": {
                 "type": "object",
@@ -81,8 +91,9 @@ TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "evaluate_move",
             "description": (
-                "The engine's evaluation of one legal move in the current position: the winrate and score lead "
-                "for the side to move after it, and its loss against the engine's best move."
+                "The engine's evaluation of one legal move in the current position: where it is, the winning chance "
+                "and score lead for the side to move after it ('for'), its loss against the engine's best move, and "
+                "what it does to the stones next to it (captures, ataris, liberties)."
             ),
             "parameters": {
                 "type": "object",
@@ -114,7 +125,7 @@ TOOLS: list[dict[str, Any]] = [
                         "items": {"type": "string"},
                         "minItems": 1,
                         "maxItems": MAX_VARIATION_LENGTH,
-                        "description": "GTP coordinates in playing order, for example [\"D4\", \"C3\", \"C4\"].",
+                        "description": 'GTP coordinates in playing order, for example ["D4", "C3", "C4"].',
                     }
                 },
                 "required": ["moves"],
@@ -146,7 +157,7 @@ def language_name(lang: str) -> str:
 
 
 def normalize_move(move: Any) -> Move:
-    """"q16" -> "Q16", "PASS" -> "pass". Raises ValueError for a non-string."""
+    """ "q16" -> "Q16", "PASS" -> "pass". Raises ValueError for a non-string."""
     if not isinstance(move, str):
         raise ValueError(f"move must be a string, got {type(move).__name__}")
     m = move.strip()
@@ -169,6 +180,194 @@ def _board_size(pos: Position) -> int:
 def _class_text(position_class: Any) -> str:
     value = getattr(position_class, "value", position_class)
     return str(value)
+
+
+_COLOR_NAMES = {"B": "Black", "W": "White"}
+_CLASS_WORDS = {
+    "only_move": "a must-play (only move) situation: every other move gives up ground",
+    "tactical": "a fighting (tactical) position where exact moves matter",
+    "strategic": "a quiet (strategic) position with several reasonable plans",
+}
+
+
+def _color_name(color: Any) -> str:
+    return _COLOR_NAMES.get(str(color), str(color))
+
+
+def _opponent(color: Any) -> str:
+    return "W" if str(color) == "B" else "B"
+
+
+def _ordinal(n: int) -> str:
+    return {1: "1st", 2: "2nd", 3: "3rd"}.get(int(n), f"{int(n)}th")
+
+
+def describe_point(move: Any, size: int = 19) -> str | None:
+    """A point in plain Go words: "upper-left corner (3-4 point)", "right side, 2nd line, lower half", "center".
+
+    Lines count from the nearest edge (the edge itself is the 1st line). A point within 5 lines of two edges (3 on
+    boards smaller than 13x13) is a corner point, within 5 lines of one edge a side point, anything else the center.
+    None for a pass or anything that is not a point on the board.
+    """
+    if not isinstance(move, str) or move.strip().lower() == PASS:
+        return None
+    try:
+        rc = gtp_to_rc(move.strip().upper(), size)
+    except (ValueError, KeyError, IndexError):
+        return None
+    if rc is None:
+        return None
+    row, col = rc
+    top, bottom, left, right = row + 1, size - row, col + 1, size - col
+    v_line, h_line = min(top, bottom), min(left, right)
+    vert = "upper" if top < bottom else "lower" if bottom < top else "middle"
+    horiz = "left" if left < right else "right" if right < left else "middle"
+    near = 5 if size >= 13 else 3
+    if v_line <= near and h_line <= near:
+        a, b = sorted((v_line, h_line))
+        return f"{vert}-{horiz} corner ({a}-{b} point)"
+    if h_line <= near:
+        half = "" if vert == "middle" else f", {vert} half"
+        return f"{horiz} side, {_ordinal(h_line)} line{half}"
+    if v_line <= near:
+        half = "" if horiz == "middle" else f", {horiz} half"
+        return f"{'top' if vert == 'upper' else 'bottom'} side, {_ordinal(v_line)} line{half}"
+    toward = "-".join(x for x in (vert, horiz) if x != "middle")
+    return "center" if not toward else f"center, toward the {toward}"
+
+
+def _chain(board: Mapping[tuple[int, int], str], start: tuple[int, int], size: int) -> tuple[set, set]:
+    """The stones of the group at start and its liberties, on a board keyed by (row, col)."""
+    color = board[start]
+    stones, libs, stack = {start}, set(), [start]
+    while stack:
+        point = stack.pop()
+        for q in neighbors(point, size):
+            c = board.get(q)
+            if c is None:
+                libs.add(q)
+            elif c == color and q not in stones:
+                stones.add(q)
+                stack.append(q)
+    return stones, libs
+
+
+_SHAPES = (  # (offsets, relation, which side's stones, the points between that must be empty)
+    (((1, 1), (1, -1), (-1, 1), (-1, -1)), "diagonal to", "opponent", 0),
+    (((1, 1), (1, -1), (-1, 1), (-1, -1)), "diagonal to", "own", 0),
+    (((2, 0), (-2, 0), (0, 2), (0, -2)), "a one-space jump from", "own", 1),
+    (((1, 2), (2, 1), (-1, 2), (-2, 1), (1, -2), (2, -1), (-1, -2), (-2, -1)), "a knight's move from", "own", 0),
+    (((3, 0), (-3, 0), (0, 3), (0, -3)), "a two-space jump from", "own", 2),
+)
+MAX_SHAPES = 3
+
+
+def _shape_relations(
+    board: Mapping[tuple[int, int], str], rc: tuple[int, int], me: str, other: str, size: int
+) -> list[dict[str, str]]:
+    """Standard shape words linking a move to nearby stones before it (diagonal, one-space jump, knight's move,
+    two-space jump), at most MAX_SHAPES, in that order."""
+    row, col = rc
+    out: list[dict[str, str]] = []
+    for offsets, relation, side, gap in _SHAPES:
+        color = other if side == "opponent" else me
+        for dr, dc in offsets:
+            q = (row + dr, col + dc)
+            if not (0 <= q[0] < size and 0 <= q[1] < size) or board.get(q) != color:
+                continue
+            steps = max(abs(dr), abs(dc))
+            between = [(row + dr * k // steps, col + dc * k // steps) for k in range(1, steps)] if gap else []
+            if any(board.get(m) is not None for m in between):
+                continue
+            out.append({"relation": relation, "side": side, "stone": rc_to_gtp(q, size)})
+            if len(out) >= MAX_SHAPES:
+                return out
+    return out
+
+
+def local_facts(game: Any, pos: Position, move: Any) -> dict[str, Any] | None:
+    """What a move by the side to move does to the stones around it (None for a pass or when the game cannot say).
+
+    touches_opponent / touches_own: stones next to it before the move; captured: opponent stones it removes; atari:
+    one stone of every adjacent opponent group left with a single liberty; adjacent_opponent: every adjacent opponent
+    group with 3 liberties or fewer after the move (a stone of it, its size, its liberties); own_group: size and
+    liberties of the mover's group after the move.
+    """
+    if not isinstance(move, str) or move.strip().lower() == PASS:
+        return None
+    size = _board_size(pos)
+    try:
+        rc = gtp_to_rc(move, size)
+        before = game.board(pos)
+        after = game.board(game.play(pos, move))
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+    if rc is None:
+        return None
+    b = {gtp_to_rc(k, size): v for k, v in before.items()}
+    a = {gtp_to_rc(k, size): v for k, v in after.items()}
+    me, other = str(pos.to_move), _opponent(pos.to_move)
+    around = neighbors(rc, size)
+    counted: set[tuple[int, int]] = set()
+    adjacent: list[dict[str, Any]] = []
+    atari: list[str] = []
+    for q in around:
+        if a.get(q) != other or q in counted:
+            continue
+        stones, libs = _chain(a, q, size)
+        counted |= stones
+        entry = {"stone": rc_to_gtp(q, size), "stones": len(stones), "liberties": len(libs)}
+        if len(libs) <= 3:
+            adjacent.append(entry)
+        if len(libs) == 1:
+            atari.append(entry["stone"])
+    own_stones, own_libs = _chain(a, rc, size) if rc in a else (set(), set())
+    return {
+        "shape": _shape_relations(b, rc, me, other, size),
+        "touches_opponent": any(b.get(q) == other for q in around),
+        "touches_own": any(b.get(q) == me for q in around),
+        "captured": sum(1 for p, v in b.items() if v == other and p not in a),
+        "atari": atari,
+        "adjacent_opponent": adjacent,
+        "own_group": {"stones": len(own_stones), "liberties": len(own_libs)},
+    }
+
+
+def local_text(local: Mapping[str, Any] | None, mine: str, theirs: str) -> str:
+    """local_facts as plain sentences. mine and theirs are the possessives of the mover and the other side
+    ("my"/"your", "your"/"my", or color names such as "Black's")."""
+    if not local:
+        return ""
+    parts: list[str] = []
+    if local.get("captured"):
+        n = int(local["captured"])
+        parts.append(f"It captures {n} of {theirs} stone{'s' if n != 1 else ''}.")
+    if local.get("atari"):
+        parts.append(f"It puts {theirs} stones at {', '.join(local['atari'])} in atari (one liberty left).")
+    for g in local.get("adjacent_opponent", ()):
+        if g["stone"] in local.get("atari", ()):
+            continue
+        parts.append(
+            f"{theirs.capitalize()} {'group' if g['stones'] > 1 else 'stone'} at {g['stone']} next to it has "
+            f"{g['liberties']} liberties."
+        )
+    if not local.get("captured") and not local.get("atari"):
+        if local.get("touches_opponent"):
+            parts.append(f"It touches {theirs} stones.")
+        elif local.get("touches_own"):
+            parts.append(f"It is played next to {mine} own stones.")
+        elif not local.get("shape"):
+            parts.append("It touches no stones.")
+    for s in local.get("shape", ()):
+        whose = mine if s["side"] == "own" else theirs
+        parts.append(f"It is {s['relation']} {whose} stone at {s['stone']}.")
+    own = local.get("own_group") or {}
+    if own.get("stones"):
+        if own["stones"] > 1:
+            parts.append(f"After it, {mine} group there has {own['stones']} stones and {own['liberties']} liberties.")
+        else:
+            parts.append(f"After it, the stone has {own['liberties']} liberties.")
+    return " ".join(parts)
 
 
 def coords_in(value: Any, size: int = 19) -> set[str]:
@@ -241,20 +440,52 @@ def _candidate_facts(c: Candidate) -> dict[str, Any]:
     }
 
 
+def _best_of(analysis: EngineAnalysis, choice: Choice) -> Candidate | None:
+    """The engine's best move by value: the strongest admissible candidate (the selector's best reliable move is
+    always admissible), else the first candidate."""
+    admissible = set(choice.admissible)
+    pool = [c for c in analysis.candidates if c.move in admissible] or list(analysis.candidates[:1])
+    return max(pool, key=lambda c: (float(c.value), int(c.visits))) if pool else None
+
+
 def explanation_facts(
     analysis: EngineAnalysis,
     choice: Choice,
     learner: LearnerEstimate,
     top_n: int = DEFAULT_TOP_CANDIDATES,
+    game: Any = None,
 ) -> dict[str, Any]:
-    """The exact numbers given to the model for one explanation (also stored as Explanation.grounded_on)."""
+    """The exact facts behind one explanation (also stored as Explanation.grounded_on).
+
+    The numeric fields of v1 stay for the app and the logs; the prompt (v2) uses the plain ones: the colors, where
+    each point is, what the move does to the stones next to it (needs `game`), the points against the engine's best
+    move and the engine's expected continuation.
+    """
     pos = analysis.position
+    size = _board_size(pos)
     shown: list[Candidate] = list(analysis.candidates[:top_n])
     if choice.move not in {c.move for c in shown}:
         chosen = next((c for c in analysis.candidates if c.move == choice.move), None)
         if chosen is not None:
             shown.append(chosen)
     last = pos.moves[-1] if pos.moves else None
+    mine = next((c for c in analysis.candidates if c.move == choice.move), None)
+    best = _best_of(analysis, choice)
+    points_vs_best = None
+    if mine is not None and best is not None and mine.score_lead is not None and best.score_lead is not None:
+        points_vs_best = round(float(best.score_lead) - float(mine.score_lead), 1)
+    continuation: list[str] = []
+    if mine is not None and mine.pv and mine.pv[0] == choice.move:
+        continuation = [m for m in mine.pv[1:3] if m != PASS]
+    local = local_facts(game, pos, choice.move) if game is not None else None
+    points = [choice.move, *(c.move for c in shown), *continuation]
+    if best is not None:
+        points.append(best.move)
+    if last is not None:
+        points.append(last[1])
+    points += [g["stone"] for g in (local or {}).get("adjacent_opponent", ())]
+    points += [s["stone"] for s in (local or {}).get("shape", ())]
+    where = {m: w for m in dict.fromkeys(points) if (w := describe_point(m, size))}
     return {
         "move": choice.move,
         "to_move": pos.to_move,
@@ -273,6 +504,17 @@ def explanation_facts(
             "n_moves": int(learner.n_moves),
             "label": numeric_to_label(learner.rank),
         },
+        "prompt_version": PROMPT_VERSION,
+        "sensei_color": str(pos.to_move),
+        "learner_color": _opponent(pos.to_move),
+        "where": where,
+        "my_winrate_pct": None if mine is None else _pct(mine.value),
+        "my_score_lead": None if mine is None or mine.score_lead is None else round(float(mine.score_lead), 1),
+        "best_move": None if best is None else best.move,
+        "best_winrate_pct": None if best is None else _pct(best.value),
+        "points_vs_best": points_vs_best,
+        "continuation": continuation,
+        "local": local,
     }
 
 
@@ -282,52 +524,106 @@ def allowed_coords_from_facts(facts: Mapping[str, Any]) -> set[str]:
     last = facts.get("last_move")
     if last:
         allowed.add(str(last["move"]).upper())
+    if facts.get("best_move"):
+        allowed.add(str(facts["best_move"]).upper())
+    allowed |= {str(m).upper() for m in facts.get("continuation") or ()}
+    local = facts.get("local") or {}
+    allowed |= {str(g["stone"]).upper() for g in local.get("adjacent_opponent", ())}
+    allowed |= {str(s).upper() for s in local.get("atari", ())}
+    allowed |= {str(s["stone"]).upper() for s in local.get("shape", ())}
     allowed.discard(PASS.upper())
     return allowed
 
 
-def _system_prompt(language: str, max_sentences: int, rank_label: str) -> str:
+def _system_prompt(
+    language: str, max_sentences: int, rank_label: str, sensei_color: str = "W", learner_color: str = "B"
+) -> str:
+    me, you = _color_name(sensei_color), _color_name(learner_color)
     return (
-        "You are Sensei, a Go coach who teaches by playing. You explain the move Sensei just played to a learner "
-        f"of about {rank_label} strength. Ground every statement on the engine facts in the user message. "
-        "Never invent moves, coordinates, variations or numbers: mention only coordinates and numbers that appear "
-        "in those facts, and do not add reading of your own. Winrates are for the side to move. "
+        f"You are Sensei, a Go coach who teaches by playing against the learner. You play {me}; the learner plays "
+        f'{you} and is about {rank_label}. Say "I" and "my" for {me}\'s stones and moves, and "you" and '
+        f"\"your\" for {you}'s; never call {me}'s stones the learner's. "
+        f"Write for a {rank_label} player: plain Go words such a player knows, no engine internals (never mention "
+        "prior, policy, visits, instructiveness, admissible moves, a value bound, or decimals such as 0.005). "
+        "Use only the facts in the user message and never invent moves, coordinates, variations or numbers: mention "
+        "only the coordinates given there, describe where a point is with the location words given (for example "
+        '"right side, 2nd line"), and do not claim shapes, threats, '
+        "life and death or sequences that the facts do not state. Round numbers (13.7 points: about 14 points). "
         f"Write in {language}, in plain prose without markdown, in at most {max_sentences} sentences."
     )
 
 
-def _format_candidates(cands: Sequence[Mapping[str, Any]]) -> str:
-    lines = []
-    for c in cands:
-        extra = "" if c.get("score_lead") is None else f", score lead {c['score_lead']:+.1f}"
-        lines.append(
-            f"- {c['move']}: prior {c['prior_pct']:.1f}%, winrate {c['winrate_pct']:.1f}%{extra}, visits {c['visits']}"
-        )
-    return "\n".join(lines)
+def _at(move: Any, where: Mapping[str, str]) -> str:
+    w = where.get(str(move))
+    return f"{move} ({w})" if w else str(move)
 
 
 def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
-    learner = facts["learner"]
+    me, you = _color_name(facts["sensei_color"]), _color_name(facts["learner_color"])
+    where = facts.get("where") or {}
+    rank = facts["learner"]["label"]
+    lines = [f"Move {facts['move_number']}."]
     last = facts.get("last_move")
-    last_text = "" if not last else f" after {last['color']} played {last['move']}"
-    class_text = str(facts["position_class"]).replace("_", "-")
-    return (
-        f"Move {facts['move_number']}, {facts['to_move']} to play{last_text}. "
-        f"Sensei played {facts['move']}.\n"
-        f"Position type: {class_text}.\n"
-        f"Value loss against the engine's best move: {facts['value_loss_pct']:.1f}% winrate "
-        f"({facts['value_loss']:.3f}).\n"
-        f"Instructiveness: {facts['instructiveness']:.2f} (positive when the engine likes the move much more than a "
-        f"{learner['label']} player would play it).\n"
-        f"Engine winrate for {facts['to_move']} before the move: {facts['root_winrate_pct']:.1f}%. "
-        f"Admissible moves within the value bound: {facts['n_admissible']}.\n"
-        "Engine candidates (prior = policy preference; winrate = for the side to move after the move):\n"
-        f"{_format_candidates(facts['candidates'])}\n"
-        f"Learner: about {learner['label']} (numeric rank {learner['rank']:+.1f}, sd {learner['rank_sd']:.1f}, "
-        f"from {learner['n_moves']} moves).\n"
-        f"In at most {max_sentences} sentences, explain why {facts['move']} is a good move to learn from here and how "
-        "it compares with the engine's best candidate. Use only the moves and numbers above."
+    if last:
+        who = "you" if last["color"] == facts["learner_color"] else "I"
+        lines.append(f"Last move: {_color_name(last['color'])} ({who}) played {_at(last['move'], where)}.")
+    lines.append(f"I ({me}) now play {_at(facts['move'], where)}.")
+    text = local_text(facts.get("local"), "my", "your")
+    if text:
+        lines.append(f"What my move does to the stones next to it: {text}")
+    root = float(facts["root_winrate_pct"])
+    lines.append(f"Winning chances before my move: {me} (me) about {root:.0f}%, {you} (you) about {100 - root:.0f}%.")
+    lead = facts.get("my_score_lead")
+    if lead is not None:
+        leader = f"{me} (me)" if lead >= 0 else f"{you} (you)"
+        lines.append(f"Score after my move, by the engine's count: {leader} ahead by about {abs(lead):.1f} points.")
+    best = facts.get("best_move")
+    if best and best != facts["move"]:
+        gap = facts.get("points_vs_best")
+        chances = None
+        if facts.get("best_winrate_pct") is not None and facts.get("my_winrate_pct") is not None:
+            chances = float(facts["best_winrate_pct"]) - float(facts["my_winrate_pct"])
+        detail = []
+        if gap is not None:
+            detail.append(f"about {gap:.1f} points better for me" if gap >= 0.5 else "about the same in points")
+        if chances is not None:
+            best_wr, my_wr = float(facts["best_winrate_pct"]), float(facts["my_winrate_pct"])
+            detail.append(
+                f"winning chances {best_wr:.1f}% against {my_wr:.1f}% for my move "
+                f"(a loss of {float(facts['value_loss_pct']):.1f}%)"
+            )
+        lines.append(f"The engine's top move was {_at(best, where)}: {'; '.join(detail) or 'close to mine'}.")
+        if gap is not None and gap >= 2.0:
+            lines.append("Say plainly that the engine's top move gains more points than mine.")
+    else:
+        mine_wr = facts.get("my_winrate_pct")
+        lines.append(
+            "My move is also the engine's top move"
+            + ("." if mine_wr is None else f" (winning chances {float(mine_wr):.1f}% for me after it).")
+        )
+    if facts.get("position_class") == "only_move" or int(facts.get("n_admissible") or 0) <= 1:
+        lines.append("Why I chose it: every other move gives up ground here.")
+    elif float(facts.get("instructiveness") or 0.0) >= 0.3:
+        lines.append(
+            f"Why I chose it: players around {rank} rarely find this move, and among the moves that keep my winning "
+            "chances it is the one most worth learning."
+        )
+    else:
+        lines.append(f"Why I chose it: it keeps my winning chances, and players around {rank} often find it too.")
+    cont = facts.get("continuation") or []
+    if cont:
+        line = f"The engine expects you to answer at {_at(cont[0], where)}"
+        if len(cont) > 1:
+            line += f", and then I would play {_at(cont[1], where)}"
+        lines.append(line + ".")
+    lines.append(f"Position type: {_CLASS_WORDS.get(str(facts['position_class']), str(facts['position_class']))}.")
+    if root >= 100 * DECIDED or root <= 100 * (1 - DECIDED):
+        lines.append("One side is far ahead: talk about points, not winning percentages.")
+    lines.append(
+        f"Write at most {max_sentences} sentences for a {rank} player: what my move does on the board, why it is "
+        "worth learning, and what to watch for next if an expected answer is given. Use only these facts."
     )
+    return "\n".join(lines)
 
 
 def build_explanation_messages(
@@ -345,10 +641,10 @@ def build_explanation_messages(
     if max_sentences is None:
         max_sentences = int(metaapi.load_config().get("explainer", {}).get("max_sentences", 4))
     language = language_name(lang)
-    return [
-        {"role": "system", "content": _system_prompt(language, max_sentences, facts["learner"]["label"])},
-        {"role": "user", "content": _user_prompt(facts, max_sentences)},
-    ]
+    system = _system_prompt(
+        language, max_sentences, facts["learner"]["label"], facts["sensei_color"], facts["learner_color"]
+    )
+    return [{"role": "system", "content": system}, {"role": "user", "content": _user_prompt(facts, max_sentences)}]
 
 
 def mistake_facts(
@@ -360,9 +656,11 @@ def mistake_facts(
     topic: str | None = None,
     position_class: Any = None,
     top_n: int = DEFAULT_TOP_CANDIDATES,
+    game: Any = None,
 ) -> dict[str, Any]:
-    """The exact numbers given to the model when explaining a learner's mistake (Explanation.grounded_on)."""
+    """The exact facts behind a mistake explanation (Explanation.grounded_on); the learner is the side to move."""
     pos = analysis.position
+    size = _board_size(pos)
     shown: list[Candidate] = list(analysis.candidates[:top_n])
     for move in (best, played):
         if move not in {c.move for c in shown}:
@@ -370,6 +668,21 @@ def mistake_facts(
             if extra is not None:
                 shown.append(extra)
     last = pos.moves[-1] if pos.moves else None
+    by_move = {c.move: c for c in analysis.candidates}
+    points_lost = None
+    if played in by_move and best in by_move:
+        lead_played, lead_best = by_move[played].score_lead, by_move[best].score_lead
+        if lead_played is not None and lead_best is not None:
+            points_lost = round(float(lead_best) - float(lead_played), 1)
+    local_played = local_facts(game, pos, played) if game is not None else None
+    local_best = local_facts(game, pos, best) if game is not None else None
+    points = [played, best, *(c.move for c in shown)]
+    if last is not None:
+        points.append(last[1])
+    for local in (local_played, local_best):
+        points += [g["stone"] for g in (local or {}).get("adjacent_opponent", ())]
+        points += [s["stone"] for s in (local or {}).get("shape", ())]
+    where = {m: w for m in dict.fromkeys(points) if (w := describe_point(m, size))}
     return {
         "kind": "mistake",
         "played": played,
@@ -390,75 +703,111 @@ def mistake_facts(
             "n_moves": int(learner.n_moves),
             "label": numeric_to_label(learner.rank),
         },
+        "prompt_version": PROMPT_VERSION,
+        "learner_color": str(pos.to_move),
+        "sensei_color": _opponent(pos.to_move),
+        "where": where,
+        "points_lost": points_lost,
+        "local_played": local_played,
+        "local_best": local_best,
     }
 
 
 def build_mistake_messages(facts: Mapping[str, Any], lang: str, max_sentences: int) -> list[dict[str, str]]:
-    learner = facts["learner"]
-    last = facts.get("last_move")
-    last_text = "" if not last else f" after {last['color']} played {last['move']}"
+    you, me = _color_name(facts["learner_color"]), _color_name(facts["sensei_color"])
+    rank = facts["learner"]["label"]
+    where = facts.get("where") or {}
     topic_text = "" if not facts.get("topic") else " This kind of situation is the learner's current focus topic."
     system = (
-        "You are Sensei, a Go coach. The learner just made a mistake and you explain it to a player of about "
-        f"{learner['label']} strength. Ground every statement on the engine facts in the user message. Never invent "
-        "moves, coordinates, variations or numbers: mention only coordinates and numbers that appear in those facts. "
-        "Winrates are for the learner, the side that was to move. Be encouraging and concrete. "
+        f"You are Sensei, a Go coach playing {me} against the learner, who plays {you} and is about {rank}. "
+        f'The learner just made a mistake. Say "you" and "your" for {you}\'s stones and "I" and "my" '
+        f"for {me}'s. Write for a {rank} player, encouraging and concrete, with no engine internals (never mention "
+        "prior, policy, visits or decimals such as 0.05). Use only the facts in the user message and never invent "
+        "moves, coordinates, variations or numbers: mention only the coordinates given there, describe where a point "
+        "is with the location words given, and do not claim shapes, "
+        "threats or sequences that the facts do not state. "
         f"Write in {language_name(lang)}, in plain prose without markdown, in at most {max_sentences} sentences."
     )
-    user = (
-        f"Move {facts['move_number']}, {facts['to_move']} (the learner) to play{last_text}. "
-        f"The learner played {facts['played']}; the engine's best move was {facts['best_move']}.\n"
-        f"The learner's move cost {facts['loss_pct']:.1f}% winrate ({facts['loss']:.3f}).\n"
-        f"Engine winrate for {facts['to_move']} before the move: {facts['root_winrate_pct']:.1f}%.\n"
-        "Engine candidates (prior = policy preference; winrate = for the learner after the move):\n"
-        f"{_format_candidates(facts['candidates'])}\n"
-        f"In at most {max_sentences} sentences, say what {facts['best_move']} achieves that {facts['played']} does "
-        f"not, using only the moves and numbers above.{topic_text}"
+    lines = [f"Move {facts['move_number']}."]
+    last = facts.get("last_move")
+    if last:
+        who = "you" if last["color"] == facts["learner_color"] else "I"
+        lines.append(f"Last move: {_color_name(last['color'])} ({who}) played {_at(last['move'], where)}.")
+    lines.append(
+        f"You ({you}) played {_at(facts['played'], where)}; "
+        f"the engine's best move was {_at(facts['best_move'], where)}."
     )
-    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    cost = f"Your move cost {float(facts['loss_pct']):.1f}% of your winning chances"
+    if facts.get("points_lost") is not None and float(facts["points_lost"]) >= 0.5:
+        cost += f", about {float(facts['points_lost']):.1f} points"
+    lines.append(cost + ".")
+    played_text = local_text(facts.get("local_played"), "your", "my")
+    best_text = local_text(facts.get("local_best"), "your", "my")
+    if played_text:
+        lines.append(f"What your move does to the stones next to it: {played_text}")
+    if best_text:
+        lines.append(f"What {facts['best_move']} would have done: {best_text}")
+    lines.append(
+        f"In at most {max_sentences} sentences, say what {facts['best_move']} achieves that {facts['played']} does "
+        f"not, using only these facts.{topic_text}"
+    )
+    return [{"role": "system", "content": system}, {"role": "user", "content": "\n".join(lines)}]
 
 
 def template_mistake(facts: Mapping[str, Any]) -> str:
-    return (
-        f"{facts['played']} cost {facts['loss_pct']:.1f}% winrate. The engine preferred {facts['best_move']} here."
-    )
+    return f"{facts['played']} cost {facts['loss_pct']:.1f}% winrate. The engine preferred {facts['best_move']} here."
 
 
 def template_explanation(facts: Mapping[str, Any]) -> str:
     """A deterministic explanation from the facts alone; used when the guard drops every sentence."""
-    cands = list(facts.get("candidates", ()))
-    chosen = next((c for c in cands if c["move"] == facts["move"]), None)
-    best = cands[0] if cands else None
-    class_text = str(facts["position_class"]).replace("_", "-")
-    parts = [f"Sensei played {facts['move']} in a {class_text} position."]
-    if chosen is not None:
-        parts.append(
-            f"The engine gives it a {chosen['winrate_pct']:.1f}% winrate with a prior of {chosen['prior_pct']:.1f}%."
-        )
-    if best is not None and best["move"] != facts["move"]:
-        parts.append(
-            f"The engine's top candidate is {best['move']} at {best['winrate_pct']:.1f}%, so the choice costs "
-            f"{facts['value_loss_pct']:.1f}% winrate."
-        )
+    where = facts.get("where") or {}
+    parts = [f"I played {_at(facts['move'], where)}."]
+    best = facts.get("best_move")
+    gap = facts.get("points_vs_best")
+    if best and best != facts["move"]:
+        if gap is not None and gap >= 0.5:
+            parts.append(f"The engine's top move was {best}, about {gap:.1f} points better by its count.")
+        else:
+            parts.append(f"The engine's top move was {best}, about as good as mine.")
     else:
-        parts.append("It is also the engine's top candidate, so it costs nothing.")
+        parts.append("It is also the engine's top move.")
     return " ".join(parts)
 
 
 # ---- Ask Sensei prompt ---------------------------------------------------------------------------------------------
 
 
-def _ask_system_prompt(pos: Position, language: str, max_sentences: int, rank_label: str | None) -> str:
+def _ask_system_prompt(
+    pos: Position, language: str, max_sentences: int, rank_label: str | None, learner_color: str | None = None
+) -> str:
     who = f" of about {rank_label} strength" if rank_label else ""
+    number = len(pos.moves) + 1
+    to_move = _color_name(pos.to_move)
+    if learner_color in ("B", "W"):
+        you, me = _color_name(learner_color), _color_name(_opponent(learner_color))
+        turn = "your turn" if pos.to_move == learner_color else "my turn"
+        opening = (
+            f'You are Sensei, a Go coach playing {me} against the learner{who}, who plays {you}. Say "I" and '
+            f'"my" for {me}\'s stones and moves, and "you" and "your" for {you}\'s; never call {me}\'s stones '
+            f"the learner's. It is move {number}, {to_move} to play ({turn}). "
+        )
+    else:
+        opening = (
+            f"You are Sensei, a Go coach answering a learner{who}. Refer to the players as Black and White. "
+            f"It is move {number}, {to_move} to play. "
+        )
     return (
-        f"You are Sensei, a Go coach answering a learner{who}. The current position is move "
-        f"{len(pos.moves) + 1} with {pos.to_move} to play on a {_board_size(pos)}x{_board_size(pos)} board. "
-        "You have tools that query the engine: analyze_position (top candidates), evaluate_move (one move's winrate, "
-        "score lead and loss against the best move), show_variation (replays a sequence, rejects illegal moves and "
-        "evaluates the end position; the learner sees it on the board) and get_learner_profile (rank estimate and "
-        "weakness topics). Call the tools you need before answering. Never invent moves, coordinates, variations or "
-        "numbers: mention only coordinates and numbers that a tool returned or that the learner's question named. "
-        "Winrates are for the side to move unless a result says otherwise. "
+        opening
+        + f"The board is {_board_size(pos)}x{_board_size(pos)}. Tools: analyze_position (the engine's top moves), "
+        "evaluate_move (one move: winning chance, points, and what it does to the stones next to it), show_variation "
+        "(plays a sequence on the learner's board and evaluates the end position) and get_learner_profile (rank "
+        "estimate and weak topics). Every tool result says which side its numbers are for ('for') and where each "
+        "point is ('where'); use those location words. Answer the question that was asked, first. When asked what "
+        "happens after a move, call show_variation with that move and describe the line it returns. Explain with "
+        "what the tools return (locations, captures, ataris, liberties, points), not with generic advice such as "
+        "'stay calm', 'hang on' or 'keep it simple'. Never mention engine internals (prior, policy, visits, "
+        "instructiveness), and never invent moves, coordinates, variations or numbers: mention only coordinates that "
+        "a tool returned or the question named. When one side's winning chance is above 95%, talk in points. "
         f"Answer in {language}, in plain prose without markdown, in at most {max_sentences} sentences."
     )
 
@@ -517,6 +866,7 @@ class MetaExplainer:
         self.min_visits_abs = int(engine_cfg.get("min_candidate_visits_abs", 10))
         self.min_visits_frac = float(engine_cfg.get("min_candidate_visits_frac", 0.05))
         self.position: Position | None = None
+        self.learner_color: str | None = None
         self.learner_profile: dict[str, Any] = {}
         self._last_learner: LearnerEstimate | None = None
         self._analyses: OrderedDict[tuple[Hashable, ...], EngineAnalysis] = OrderedDict()
@@ -528,6 +878,19 @@ class MetaExplainer:
         self.position = pos
         if analysis is not None:
             self._remember(analysis)
+
+    def set_learner_color(self, color: str | None) -> None:
+        """The learner's color ("B" or "W"), so prompts and tool results can say "you" and "I" (set by the session;
+        `explain` sets it too, to the side that is not Sensei)."""
+        self.learner_color = color if color in ("B", "W") else None
+
+    def _label(self, color: Any) -> str:
+        """A side as tool results name it: "Black (you)", "White (me)", or the bare color while the learner's is
+        unknown."""
+        name = _color_name(color)
+        if self.learner_color not in ("B", "W"):
+            return name
+        return f"{name} (you)" if str(color) == self.learner_color else f"{name} (me)"
 
     def set_learner_profile(self, profile: Mapping[str, Any]) -> None:
         """What get_learner_profile returns: rank estimate, weak topics, target topic (set by the session)."""
@@ -582,11 +945,12 @@ class MetaExplainer:
         lang: str = "en",
     ) -> Explanation:
         """Explain the chosen move from the engine facts; grounded_on holds the exact numbers sent."""
-        facts = explanation_facts(analysis, choice, learner)
+        facts = explanation_facts(analysis, choice, learner, game=self.game)
         messages = build_explanation_messages(
             analysis, choice, learner, lang, max_sentences=self.max_sentences, facts=facts
         )
         self.set_position(analysis.position, analysis)
+        self.learner_color = facts["learner_color"]
         self._last_learner = learner
         size = _board_size(analysis.position)
         allowed = allowed_coords_from_facts(facts)
@@ -633,12 +997,15 @@ class MetaExplainer:
         lang: str = "en",
     ) -> Explanation:
         """Explain a learner's mistake from the analysis of the position before it; same guard as `explain`."""
-        facts = mistake_facts(analysis, played, best, loss, learner, topic, position_class)
+        facts = mistake_facts(analysis, played, best, loss, learner, topic, position_class, game=self.game)
         messages = build_mistake_messages(facts, lang, self.max_sentences)
         size = _board_size(analysis.position)
         allowed = {str(c["move"]).upper() for c in facts["candidates"]} | {played.upper(), best.upper()}
         if facts.get("last_move"):
             allowed.add(str(facts["last_move"]["move"]).upper())
+        for local in (facts.get("local_played"), facts.get("local_best")):
+            allowed |= {str(g["stone"]).upper() for g in (local or {}).get("adjacent_opponent", ())}
+            allowed |= {str(s["stone"]).upper() for s in (local or {}).get("shape", ())}
         allowed.discard(PASS.upper())
         totals = [0, 0]
         guard: dict[str, Any] = {"regenerated": False, "dropped": [], "ungrounded": []}
@@ -677,8 +1044,12 @@ class MetaExplainer:
         *,
         position: Position | None = None,
         lang: str = "en",
+        learner_color: str | None = None,
     ) -> Explanation:
         """Answer a learner question with the tool loop (at most explainer.max_tool_rounds tool rounds).
+
+        learner_color ("B" or "W") overrides the color set by the session or by the last `explain`; without either,
+        the prompt refers to the players by color only.
 
         history holds earlier user/assistant messages of the Ask Sensei conversation. grounded_on carries the tool
         calls with their results, the variations the model showed (for the UI to draw), the allowed coordinates and
@@ -689,8 +1060,11 @@ class MetaExplainer:
             raise ValueError("no current position: call set_position() or explain() before ask()")
         size = _board_size(pos)
         rank_label = self._rank_label()
+        if learner_color is not None:
+            self.set_learner_color(learner_color)
+        system = _ask_system_prompt(pos, language_name(lang), self.max_sentences, rank_label, self.learner_color)
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": _ask_system_prompt(pos, language_name(lang), self.max_sentences, rank_label)},
+            {"role": "system", "content": system},
             *[dict(m) for m in history],
             {"role": "user", "content": question},
         ]
@@ -742,6 +1116,8 @@ class MetaExplainer:
             completion_tokens=totals[1],
             grounded_on={
                 "question": question,
+                "prompt_version": PROMPT_VERSION,
+                "learner_color": self.learner_color,
                 "to_move": pos.to_move,
                 "move_number": len(pos.moves) + 1,
                 "tool_rounds": rounds,
@@ -782,11 +1158,21 @@ class MetaExplainer:
     def tool_analyze_position(self, pos: Position, top_k: Any = DEFAULT_TOP_CANDIDATES) -> dict[str, Any]:
         k = min(max(int(top_k), 1), MAX_TOOL_CANDIDATES)
         analysis = self.analysis_for(pos)
+        size = _board_size(pos)
         return {
             "to_move": pos.to_move,
+            "for": self._label(pos.to_move),
             "move_number": len(pos.moves) + 1,
             "root_winrate_pct": _pct(analysis.root_value),
-            "candidates": [_candidate_facts(c) for c in analysis.candidates[:k]],
+            "candidates": [
+                {
+                    "move": c.move,
+                    "where": describe_point(c.move, size),
+                    "winrate_pct": _pct(c.value),
+                    "score_lead": None if c.score_lead is None else round(float(c.score_lead), 1),
+                }
+                for c in analysis.candidates[:k]
+            ],
         }
 
     def tool_evaluate_move(self, pos: Position, move: Any) -> dict[str, Any]:
@@ -798,22 +1184,28 @@ class MetaExplainer:
         candidate = next((c for c in analysis.candidates if c.move == played), None)
         if candidate is not None:
             winrate, score_lead = candidate.value, candidate.score_lead
-            visits, source = candidate.visits, "root candidate"
+            source = "root candidate"
         else:  # not a root candidate: evaluate the position after the move (INTERFACES.md, mistakes)
             after = self.analysis_for(self.game.play(pos, played))
             winrate = 1.0 - after.root_value
             top = after.candidates[0] if after.candidates else None
             score_lead = None if top is None or top.score_lead is None else -top.score_lead
-            visits, source = 0, "second query on the position after the move"
+            source = "second query on the position after the move"
+        size = _board_size(pos)
+        mover, other = self._label(pos.to_move), self._label(_opponent(pos.to_move))
+        on_board = local_text(local_facts(self.game, pos, played), f"{mover}'s", f"{other}'s")
         return {
             "move": played,
+            "where": describe_point(played, size),
             "perspective": pos.to_move,
+            "for": mover,
             "winrate_pct": _pct(winrate),
             "score_lead": None if score_lead is None else round(float(score_lead), 1),
             "loss_pct": _pct(max(best.value - winrate, 0.0)),
             "best_move": best.move,
+            "best_where": describe_point(best.move, size),
             "best_winrate_pct": _pct(best.value),
-            "visits": int(visits),
+            "on_the_board": on_board or None,
             "source": source,
         }
 
@@ -840,13 +1232,22 @@ class MetaExplainer:
         score_lead = None
         if top is not None and top.score_lead is not None:
             score_lead = -top.score_lead if flipped else top.score_lead
+        size = _board_size(pos)
+        steps, color = [], pos.to_move
+        for move in played:
+            steps.append({"move": move, "by": self._label(color), "where": describe_point(move, size)})
+            color = _opponent(color)
         return {
             "moves": played,
+            "steps": steps,
             "to_move_after": current.to_move,
             "perspective": pos.to_move,
+            "for": self._label(pos.to_move),
             "winrate_pct": _pct(winrate),
             "score_lead": None if score_lead is None else round(float(score_lead), 1),
             "engine_reply": None if top is None else top.move,
+            "engine_reply_where": None if top is None else describe_point(top.move, size),
+            "engine_reply_by": self._label(current.to_move),
             "engine_reply_winrate_pct": None if top is None else _pct(top.value),
             "engine_reply_perspective": current.to_move,
             "game_over": bool(self.game.is_terminal(current)),

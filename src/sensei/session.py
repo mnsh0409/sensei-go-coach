@@ -305,6 +305,8 @@ class Session:
         """Point Ask Sensei at the current position and the current profile (when the explainer supports it)."""
         if hasattr(self.explainer, "set_position"):
             self.explainer.set_position(self.pos)
+        if hasattr(self.explainer, "set_learner_color"):
+            self.explainer.set_learner_color(self.learner_color)
         if hasattr(self.explainer, "set_learner_profile"):
             self.explainer.set_learner_profile(self.profile_summary())
 

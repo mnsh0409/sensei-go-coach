@@ -427,7 +427,7 @@ def test_explain_mistake_grounds_on_the_played_and_best_moves(tmp_path):
     assert out.grounded_on["loss_pct"] == 5.0 and out.grounded_on["topic"] == "t_corner"
     assert out.grounded_on["guard"]["regenerated"] is True and out.grounded_on["guard"]["ungrounded"] == ["K10"]
     user = client.calls[0]["messages"][1]["content"]
-    assert "The learner played C3" in user and "5.0% winrate" in user
+    assert "You (Black) played C3" in user and "5.0% of your winning chances" in user  # v2 voice: "you" = learner
 
 
 def test_explain_mistake_falls_back_to_a_template(tmp_path):
