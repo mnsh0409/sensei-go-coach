@@ -8,6 +8,8 @@ authors:
 version: 0.1.0
 date-released: 2026-11-05
 license: MIT
+repository-code: "https://github.com/mnsh0409/sensei-go-coach"
+url: "https://github.com/mnsh0409/sensei-go-coach"
 abstract: >-
   A Go coaching agent: KataGo proposes moves, a selector plays the strong move a player of the learner's rank
   would rarely find under an explicit strength bound, and Muse Spark (Meta Model API) explains it and answers
