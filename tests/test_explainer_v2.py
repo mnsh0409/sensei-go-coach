@@ -65,7 +65,7 @@ def test_explanation_prompt_v2_voice_locations_and_no_jargon():
     assert (
         facts["sensei_color"] == "W"
         and facts["learner_color"] == "B"
-        and facts["prompt_version"] == ex.PROMPT_VERSION == "v3.1"
+        and facts["prompt_version"] == ex.PROMPT_VERSION == "v4"
     )
     assert facts["best_move"] == "R14" and facts["points_vs_best"] == 2.5 and facts["continuation"] == ["R14"]
     assert facts["where"]["Q5"] == "lower-right corner (4-5 point)"
@@ -75,9 +75,10 @@ def test_explanation_prompt_v2_voice_locations_and_no_jargon():
     assert "I (White) now play Q5 (lower-right corner (4-5 point))" in user
     assert "Last move: Black (you) played R4" in user
     assert "R14 (right side, 3rd line, upper half): about 2.5 points better for me" in user
-    assert "but R14 gains about 2.5 points more than my move, and your text must say so plainly" in user
+    assert "but R14 gains about 2.5 points more, so for points R14 is the better move" in user
+    assert "do not call my move the best one" in user
     assert "Winning chances before my move: White (me) about 60%" in user  # a close game keeps the percentages
-    assert "The engine expects you to answer at R14" in user and "players around 10k rarely find" in user
+    assert "A likely answer for you is R14" in user and "players around 10k rarely find" in user
     assert not any(word in user.lower() for word in JARGON), user
     assert ex.allowed_coords_from_facts(facts) >= {"Q5", "R14", "R4", "D17"}
 
@@ -203,3 +204,102 @@ def test_v3_1_evaluate_move_measures_against_the_most_searched_move(tmp_path):
     result = explainer.tool_evaluate_move(top.position, "R14")
     assert result["best_move"] == "D17" and result["loss_pct"] == 0.0
     assert explainer.tool_evaluate_move(top.position, "D17")["loss_pct"] == 0.0
+
+
+# ---- v4: the reason from the engine (what the other side would play if Sensei passed) ----------------------------
+
+
+def test_v4_local_facts_report_a_move_that_connects_two_groups():
+    game, pos = play(["C3", "Q16", "C5", "Q4"])  # Black C3 and C5 are separate; Black C4 joins them
+    local = ex.local_facts(game, pos, "C4")
+    assert local["joins"] == ["C3", "C5"] or local["joins"] == ["C5", "C3"]
+    text = ex.local_text(local, "my", "your")
+    assert "It connects my stones at" in text and "into one group" in text and "next to my own" not in text
+    assert ex.local_facts(game, pos, "D4")["joins"] == []
+
+
+class PassEngine:
+    """Root analysis for the position itself; after a pass, the other side's top move is `threat`."""
+
+    def __init__(self, analysis, threat, score=-1.0):
+        self.analysis, self.threat, self.score, self.queries = analysis, threat, score, []
+
+    def analyze(self, pos, max_visits):
+        self.queries.append(pos)
+        if pos.moves and pos.moves[-1][1] == "pass":
+            c = Candidate(self.threat, 0.5, 0.6, 100, self.score, (self.threat,))
+            return EngineAnalysis(pos, (c,), {c.move: 0.5}, 0.6)
+        return self.analysis
+
+
+def test_v4_threat_facts_and_prompt(tmp_path):
+    # Black C4 and E4 flank White D4; Black (Sensei) plays D5. If Black passed, White would play D5 itself.
+    game, pos = play(["C4", "D4", "E4", "Q16"])
+    cands = (Candidate("D5", 0.6, 0.62, 150, 4.0, ("D5", "D3")), Candidate("Q4", 0.4, 0.55, 50, 1.0, ("Q4",)))
+    analysis = EngineAnalysis(pos, cands, {c.move: c.prior for c in cands}, 0.60)
+    choice = Choice("D5", 0.8, 0.0, PositionClass.TACTICAL, {"D5": 0.8}, ("D5",))
+    learner = LearnerEstimate(rank=-9.0, rank_sd=1.0, n_moves=40)
+    client = Client()
+    engine = PassEngine(analysis, "D5", score=-1.0)
+    explainer = ex.MetaExplainer(client, engine, game, {"explainer": {}}, model="m", log_path=tmp_path / "a")
+    out = explainer.explain(analysis, choice, learner)
+    threat = out.grounded_on["threat"]
+    assert threat["move"] == "D5" and threat["same_point"] and threat["local"] and threat["worth_points"] == 3.0
+    user = client.calls[0]["messages"][1]["content"]
+    assert (
+        "If I had passed instead, your best move would be this same point, D5: it would give your stones at D4 4 "
+        "liberties instead of 2." in user
+    )
+    assert "the main reason to play here is what you would do here if I passed" in user
+    assert "Compared with passing, my move is worth about 3.0 points" in user
+    assert "Position type: a must-play (only move) situation" in user  # one admissible move: no "quiet" wording
+    # The template fallback carries the threat too.
+    assert "If I had passed, your best move would be D5" in ex.template_explanation(out.grounded_on)
+
+
+def test_v4_threat_text_names_captures_and_sharpness():
+    # Black C4, E4 and D3 surround White D4. If White passed, Black's D5 would capture it.
+    game, pos = play(["C4", "D4", "E4", "Q16", "D3", "Q4", "K10"])  # White to move
+    capture = ex.local_facts(game, game.play(pos, "pass"), "D5")
+    assert ex.threat_text(capture, "my", "your") == "it would capture 1 of my stone"
+    assert ex.threat_sharp({"local": True, "facts": capture})
+    assert not ex.threat_sharp({"local": False, "facts": capture})
+    quiet = ex.local_facts(game, game.play(pos, "pass"), "K16")
+    assert ex.threat_text(quiet, "my", "your") == "" and not ex.threat_sharp({"local": True, "facts": quiet})
+
+
+def test_v4_far_threat_is_not_a_reason_and_passes_skip_the_query(tmp_path):
+    game, analysis, choice, learner = sample_facts()  # Sensei (White) plays Q5
+    engine = PassEngine(analysis, "D17", score=-1.0)  # far from Q5
+    client = Client()
+    explainer = ex.MetaExplainer(client, engine, game, {"explainer": {}}, model="m", log_path=tmp_path / "a")
+    out = explainer.explain(analysis, choice, learner)
+    assert out.grounded_on["threat"]["local"] is False
+    user = client.calls[0]["messages"][1]["content"]
+    assert "If I had passed" not in user and "the main reason to play here" not in user
+    passed = game.play(analysis.position, "pass")
+    assert explainer.threat_after_pass(passed, "Q5", 1.0) is None  # passing again would end the game
+
+
+def test_v4_evaluate_move_reports_what_the_other_side_would_play(tmp_path):
+    game, pos = play(["C4", "D4", "E4", "Q16"])
+    cands = (Candidate("D5", 0.6, 0.62, 150, 4.0, ("D5",)), Candidate("Q4", 0.4, 0.55, 50, 1.0, ("Q4",)))
+    analysis = EngineAnalysis(pos, cands, {c.move: c.prior for c in cands}, 0.60)
+    explainer = ex.MetaExplainer(
+        Client(), PassEngine(analysis, "D5", score=-1.0), game, {"explainer": {}}, model="m", log_path=tmp_path / "a"
+    )
+    explainer.set_learner_color("W")
+    result = explainer.tool_evaluate_move(pos, "D5")
+    assert result["if_not_played"]["move"] == "D5" and result["if_not_played"]["same_point"]
+    assert result["if_not_played"]["by"] == "White (you)" and result["worth_vs_pass_points"] == 3.0
+    far = explainer.tool_evaluate_move(pos, "Q4")
+    assert far["if_not_played"] is None
+
+
+def test_v4_a_move_that_rescues_a_short_group_says_so():
+    # White D4 between Black C4 and E4 has 2 liberties; White D5 gives the pair 4.
+    game, pos = play(["C4", "D4", "E4", "Q16", "Q4"])  # White to move
+    local = ex.local_facts(game, pos, "D5")
+    assert ex.rescued(local) == [{"stone": "D4", "stones": 1, "liberties": 2}]
+    assert "It gives my stones at D4 4 liberties instead of 2." in ex.local_text(local, "my", "your")
+    assert ex.rescued(ex.local_facts(game, pos, "K10")) == []

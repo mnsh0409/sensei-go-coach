@@ -49,7 +49,7 @@ LANGUAGE_NAMES = {
     "ja": "Japanese",
 }
 FALLBACK_ASK_TEXT = "Sensei could not finish answering within its tool budget; please ask a narrower question."
-PROMPT_VERSION = "v3.1"
+PROMPT_VERSION = "v4"
 """Version of the explanation and Ask Sensei prompts; recorded with every explanation set (results/explanations_*).
 
 v2 (2026-11-04, after the T5 grading of v1): the prompts name the learner's color and Sensei's ("I" and "you"),
@@ -63,6 +63,11 @@ required part of the reason, and every move in a tool result labelled with who p
 v3.1 (2026-11-04, a fix to one fact, the prompt wording is v3's): "the engine's top move" is the engine's
 most-searched move (`_engine_top`) in the explanation facts, the template and `evaluate_move`, not the
 admissible move with the highest winrate, and the facts say so when my move scores more points than it.
+v4 (2026-11-04, after the T5 grading of v3.1, a deviation from TASKS.md's two-round cap): the reason for a move
+comes from the engine, not the model: what the other side would play near it if Sensei passed and what that move
+would do to Sensei's stones (`threat_facts`, one extra engine query), and how many points the move is worth against
+passing; moves that connect two groups say so; the position type no longer contradicts an only move; a move that
+gives up 2 points or more is not called the best; "a likely answer for you is"; location words for at most two points.
 """
 DECIDED = 0.95
 """Above this winning chance (or below 1 - DECIDED) the prompts ask for points instead of percentages."""
@@ -99,8 +104,10 @@ TOOLS: list[dict[str, Any]] = [
             "name": "evaluate_move",
             "description": (
                 "The engine's evaluation of one legal move in the current position: where it is, the winning chance "
-                "and score lead for the side to move after it ('for'), its loss against the engine's best move, and "
-                "what it does to the stones next to it (captures, ataris, liberties)."
+                "and score lead for the side to move after it ('for'), its loss against the engine's top move, what "
+                "it does to the stones next to it (captures, ataris, liberties, connections), what the other side "
+                "would play near it if the side to move passed instead ('if_not_played'), and how many points the "
+                "move is worth compared with passing."
             ),
             "parameters": {
                 "type": "object",
@@ -300,7 +307,9 @@ def local_facts(game: Any, pos: Position, move: Any) -> dict[str, Any] | None:
     touches_opponent / touches_own: stones next to it before the move; captured: opponent stones it removes; atari:
     one stone of every adjacent opponent group left with a single liberty; adjacent_opponent: every adjacent opponent
     group with 3 liberties or fewer after the move (a stone of it, its size, its liberties); own_group: size and
-    liberties of the mover's group after the move.
+    liberties of the mover's group after the move; joins: one stone of each of the mover's groups it connects (v4),
+    empty unless it connects two or more; own_before: each of the mover's groups next to it before the move (a
+    stone, its size, its liberties), so a move that rescues a short-of-liberties group can say so.
     """
     if not isinstance(move, str) or move.strip().lower() == PASS:
         return None
@@ -331,6 +340,15 @@ def local_facts(game: Any, pos: Position, move: Any) -> dict[str, Any] | None:
         if len(libs) == 1:
             atari.append(entry["stone"])
     own_stones, own_libs = _chain(a, rc, size) if rc in a else (set(), set())
+    joined: list[str] = []  # one stone of every separate own group next to the move, when there are two or more
+    own_before: list[dict[str, Any]] = []
+    seen: set[tuple[int, int]] = set()
+    for q in around:
+        if b.get(q) == me and q not in seen:
+            stones, libs = _chain(b, q, size)
+            seen |= stones
+            joined.append(rc_to_gtp(q, size))
+            own_before.append({"stone": rc_to_gtp(q, size), "stones": len(stones), "liberties": len(libs)})
     nearest: dict[str, dict[str, Any] | None] = {"own": None, "opponent": None}
     for point, color in b.items():
         if point is None:
@@ -353,7 +371,17 @@ def local_facts(game: Any, pos: Position, move: Any) -> dict[str, Any] | None:
         "atari": atari,
         "adjacent_opponent": adjacent,
         "own_group": {"stones": len(own_stones), "liberties": len(own_libs)},
+        "joins": joined if len(joined) >= 2 else [],
+        "own_before": own_before,
     }
+
+
+def rescued(local: Mapping[str, Any] | None) -> list[dict[str, Any]]:
+    """The mover's groups next to the move that had 2 liberties or fewer before it and more after it (v4)."""
+    if not local:
+        return []
+    after = int((local.get("own_group") or {}).get("liberties") or 0)
+    return [g for g in local.get("own_before", ()) if int(g["liberties"]) <= 2 and after > int(g["liberties"])]
 
 
 def local_text(local: Mapping[str, Any] | None, mine: str, theirs: str) -> str:
@@ -374,10 +402,16 @@ def local_text(local: Mapping[str, Any] | None, mine: str, theirs: str) -> str:
             f"{theirs.capitalize()} {'group' if g['stones'] > 1 else 'stone'} at {g['stone']} next to it has "
             f"{g['liberties']} liberties."
         )
+    joins = list(local.get("joins") or ())
+    if joins:
+        parts.append(f"It connects {mine} stones at {', '.join(joins[:-1])} and {joins[-1]} into one group.")
+    after_libs = int((local.get("own_group") or {}).get("liberties") or 0)
+    for g in rescued(local):
+        parts.append(f"It gives {mine} stones at {g['stone']} {after_libs} liberties instead of {g['liberties']}.")
     if not local.get("captured") and not local.get("atari"):
         if local.get("touches_opponent"):
             parts.append(f"It touches {theirs} stones.")
-        elif local.get("touches_own"):
+        elif local.get("touches_own") and not joins and not rescued(local):
             parts.append(f"It is played next to {mine} own stones.")
         elif not local.get("shape"):
             parts.append("It touches no stones.")
@@ -404,6 +438,99 @@ def local_text(local: Mapping[str, Any] | None, mine: str, theirs: str) -> str:
         else:
             parts.append(f"After it, {mine} new stone has {own['liberties']} liberties.")
     return " ".join(parts)
+
+
+THREAT_RADIUS = 4
+"""The other side's best move after a pass is "here" (a reason for my move) when it is within this many points
+(Chebyshev distance) of my move."""
+
+
+def _distance(a: str, b: str, size: int) -> int | None:
+    try:
+        ra, rb = gtp_to_rc(a, size), gtp_to_rc(b, size)
+    except (ValueError, KeyError, IndexError):
+        return None
+    if ra is None or rb is None:
+        return None
+    return max(abs(ra[0] - rb[0]), abs(ra[1] - rb[1]))
+
+
+def threat_facts(
+    game: Any, pos: Position, move: Any, after_pass: EngineAnalysis | None, my_score_lead: float | None
+) -> dict[str, Any] | None:
+    """What the other side would do if the side to move passed instead of playing `move` (v4).
+
+    after_pass is the engine's analysis of the position after a pass by the side to move. Returns the other side's
+    top move there, its distance from `move`, whether it is local (within THREAT_RADIUS) or the same point, its
+    local_facts from the other side's view, and worth_points: the score after `move` minus the score after the pass
+    and that reply, both for the side to move (None when a score is missing). None when there is nothing to say
+    (a pass, no analysis, the other side would pass too, or the game cannot replay it).
+    """
+    if not isinstance(move, str) or move.strip().lower() == PASS or after_pass is None:
+        return None
+    top = _engine_top(after_pass)
+    if top is None or str(top.move).lower() == PASS:
+        return None
+    size = _board_size(pos)
+    distance = _distance(str(top.move), move, size)
+    if distance is None:
+        return None
+    worth = None
+    if my_score_lead is not None and top.score_lead is not None:
+        worth = round(float(my_score_lead) + float(top.score_lead), 1)  # top.score_lead is for the other side
+    return {
+        "move": top.move,
+        "same_point": top.move == move,
+        "distance": distance,
+        "local": distance <= THREAT_RADIUS,
+        "facts": local_facts(game, after_pass.position, top.move),
+        "worth_points": worth,
+    }
+
+
+def threat_sharp(threat: Mapping[str, Any] | None) -> bool:
+    """A local threat that captures, ataris, leaves a group of the passer with 2 liberties or fewer, connects, or
+    rescues a group of its own that had 2 liberties or fewer."""
+    if not threat or not threat.get("local"):
+        return False
+    f = threat.get("facts") or {}
+    return bool(
+        f.get("captured")
+        or f.get("atari")
+        or f.get("joins")
+        or rescued(f)
+        or any(int(g["liberties"]) <= 2 for g in f.get("adjacent_opponent", ()))
+    )
+
+
+def threat_text(local: Mapping[str, Any] | None, passer: str, mover: str) -> str:
+    """The other side's threat move as clauses in the conditional ("it would put my stones at D4 in atari").
+    passer and mover are possessives of the side that passed and the side that plays the threat."""
+    if not local:
+        return ""
+    parts: list[str] = []
+    if local.get("captured"):
+        n = int(local["captured"])
+        parts.append(f"it would capture {n} of {passer} stone{'s' if n != 1 else ''}")
+    if local.get("atari"):
+        parts.append(f"it would put {passer} stones at {', '.join(local['atari'])} in atari")
+    for g in local.get("adjacent_opponent", ()):
+        if g["stone"] in local.get("atari", ()):
+            continue
+        kind = "group" if g["stones"] > 1 else "stone"
+        parts.append(f"{passer} {kind} at {g['stone']} next to it would have {g['liberties']} liberties")
+    joins = list(local.get("joins") or ())
+    if joins:
+        parts.append(f"it would connect {mover} stones at {', '.join(joins[:-1])} and {joins[-1]}")
+    after_libs = int((local.get("own_group") or {}).get("liberties") or 0)
+    for g in rescued(local):
+        parts.append(f"it would give {mover} stones at {g['stone']} {after_libs} liberties instead of {g['liberties']}")
+    if not parts:
+        if local.get("touches_opponent"):
+            parts.append(f"it would touch {passer} stones")
+        elif local.get("touches_own"):
+            parts.append(f"it would be played next to {mover} own stones")
+    return "; ".join(parts)
 
 
 def coords_in(value: Any, size: int = 19) -> set[str]:
@@ -490,6 +617,7 @@ def explanation_facts(
     learner: LearnerEstimate,
     top_n: int = DEFAULT_TOP_CANDIDATES,
     game: Any = None,
+    threat: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The exact facts behind one explanation (also stored as Explanation.grounded_on).
 
@@ -522,6 +650,12 @@ def explanation_facts(
     points += [g["stone"] for g in (local or {}).get("adjacent_opponent", ())]
     points += [s["stone"] for s in (local or {}).get("shape", ())]
     points += [n["stone"] for n in ((local or {}).get("nearest") or {}).values() if n]
+    points += list((local or {}).get("joins") or ()) + [g["stone"] for g in rescued(local)]
+    if threat and threat.get("local"):
+        points.append(threat["move"])
+        tf = threat.get("facts") or {}
+        points += list(tf.get("atari", ())) + [g["stone"] for g in tf.get("adjacent_opponent", ())]
+        points += list(tf.get("joins") or ()) + [g["stone"] for g in rescued(tf)]
     where = {m: w for m in dict.fromkeys(points) if (w := describe_point(m, size))}
     return {
         "move": choice.move,
@@ -552,6 +686,7 @@ def explanation_facts(
         "points_vs_best": points_vs_best,
         "continuation": continuation,
         "local": local,
+        "threat": None if threat is None else dict(threat),
     }
 
 
@@ -569,6 +704,16 @@ def allowed_coords_from_facts(facts: Mapping[str, Any]) -> set[str]:
     allowed |= {str(s).upper() for s in local.get("atari", ())}
     allowed |= {str(s["stone"]).upper() for s in local.get("shape", ())}
     allowed |= {str(n["stone"]).upper() for n in (local.get("nearest") or {}).values() if n}
+    allowed |= {str(s).upper() for s in local.get("joins") or ()}
+    allowed |= {str(g["stone"]).upper() for g in rescued(local)}
+    threat = facts.get("threat") or {}
+    if threat.get("local"):
+        allowed.add(str(threat["move"]).upper())
+        tf = threat.get("facts") or {}
+        allowed |= {str(s).upper() for s in tf.get("atari", ())}
+        allowed |= {str(g["stone"]).upper() for g in tf.get("adjacent_opponent", ())}
+        allowed |= {str(s).upper() for s in tf.get("joins") or ()}
+        allowed |= {str(g["stone"]).upper() for g in rescued(tf)}
     allowed.discard(PASS.upper())
     return allowed
 
@@ -584,8 +729,8 @@ def _system_prompt(
         f"Write for a {rank_label} player: plain Go words such a player knows, no engine internals (never mention "
         "prior, policy, visits, instructiveness, admissible moves, a value bound, or decimals such as 0.005). "
         "Use only the facts in the user message and never invent moves, coordinates, variations or numbers: mention "
-        "only the coordinates given there, describe where a point is with the location words given (for example "
-        '"right side, 2nd line"), and do not claim shapes, threats, '
+        "only the coordinates given there, describe where my move is with the location words given (for example "
+        '"right side, 2nd line"; other points can be named by coordinate alone), and do not claim shapes, threats, '
         "life and death or sequences that the facts do not state. Round numbers (13.7 points: about 14 points). "
         f"Write in {language}, in plain prose without markdown, in at most {max_sentences} sentences."
     )
@@ -622,6 +767,20 @@ def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
         else:
             leader = f"{me} (me)" if lead > 0 else f"{you} (you)"
             lines.append(f"Score after my move, by the engine's count: {leader} ahead by about {abs(lead):.1f} points.")
+    threat = facts.get("threat") or {}
+    if threat.get("local"):
+        clause = threat_text(threat.get("facts"), "my", "your")
+        if threat.get("same_point"):
+            head = f"If I had passed instead, your best move would be this same point, {facts['move']}"
+        else:
+            head = (
+                f"If I had passed instead, your best move would be {_at(threat['move'], where)}, "
+                f"{threat['distance']} points from my move"
+            )
+        lines.append(head + (f": {clause}." if clause else "."))
+    worth = threat.get("worth_points")
+    if worth is not None and float(worth) >= 0.5:
+        lines.append(f"Compared with passing, my move is worth about {float(worth):.1f} points by the engine's count.")
     best = facts.get("best_move")
     gap = facts.get("points_vs_best")
     if best and best != facts["move"]:
@@ -642,29 +801,42 @@ def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
         mine_wr = facts.get("my_winrate_pct")
         tail = "." if mine_wr is None or decided else f" (winning chances {float(mine_wr):.1f}% for me after it)."
         lines.append("My move is also the engine's top move" + tail)
-    if facts.get("position_class") == "only_move" or int(facts.get("n_admissible") or 0) <= 1:
+    only = facts.get("position_class") == "only_move" or int(facts.get("n_admissible") or 0) <= 1
+    rare = float(facts.get("instructiveness") or 0.0) >= 0.3
+    big_gap = bool(best and best != facts["move"] and gap is not None and gap >= 2.0)
+    if only:
         why = "every other move gives up ground here"
-    elif float(facts.get("instructiveness") or 0.0) >= 0.3:
+    elif big_gap:
+        found = "rarely find my move" if rare else "often find my move too"
+        why = (
+            f"the engine counts my move and {best} as both keeping my winning chances, and players around {rank} "
+            f"{found}; but {best} gains about {gap:.1f} points more, so for points {best} is the better move: say so "
+            "plainly and do not call my move the best one"
+        )
+    elif rare:
         why = (
             f"players around {rank} rarely find this move, and among the moves that keep my winning chances it is the "
             "one most worth learning"
         )
     else:
         why = f"it keeps my winning chances, and players around {rank} often find it too"
-    if best and best != facts["move"] and gap is not None and gap >= 2.0:
-        why += f"; but {best} gains about {gap:.1f} points more than my move, and your text must say so plainly"
+    if threat_sharp(threat):
+        why += "; the main reason to play here is what you would do here if I passed (above)"
     lines.append(f"Why I chose it: {why}.")
     cont = facts.get("continuation") or []
     if cont:
-        line = f"The engine expects you to answer at {_at(cont[0], where)}"
+        line = f"A likely answer for you is {_at(cont[0], where)}"
         if len(cont) > 1:
             line += f", and then I would play {_at(cont[1], where)}"
         lines.append(line + ".")
-    lines.append(f"Position type: {_CLASS_WORDS.get(str(facts['position_class']), str(facts['position_class']))}.")
+    kind = "only_move" if only else str(facts["position_class"])
+    lines.append(f"Position type: {_CLASS_WORDS.get(kind, kind)}.")
     lines.append(
-        f"Write at most {max_sentences} sentences for a {rank} player: what my move does on the board, why it is "
-        "worth learning (including any points it gives up), and what to watch for next if an expected answer is "
-        "given. Use only these facts."
+        f"Write at most {max_sentences} sentences for a {rank} player: first the reason for my move (what you would "
+        "do here if I passed, when that is given; otherwise what my move does to the stones around it), then why I "
+        'chose it, with any points it gives up, then a likely answer for you. Say "a likely answer for you is" and '
+        "never tell the learner to watch for their own move. Give location words for my move and at most one other "
+        "point. Use only these facts."
     )
     return "\n".join(lines)
 
@@ -817,6 +989,10 @@ def template_explanation(facts: Mapping[str, Any]) -> str:
             parts.append(f"The engine's top move was {best}, about as good as mine.")
     else:
         parts.append("It is also the engine's top move.")
+    threat = facts.get("threat") or {}
+    clause = threat_text(threat.get("facts"), "my", "your") if threat.get("local") else ""
+    if clause:
+        parts.append(f"If I had passed, your best move would be {threat['move']}: {clause}.")
     return " ".join(parts)
 
 
@@ -850,12 +1026,16 @@ def _ask_system_prompt(
         "estimate and weak topics). Every tool result says which side its numbers are for ('for') and where each "
         "point is ('where'); use those location words. They also say who plays each move ('by'): a move by Sensei's "
         "color is always my move and a move by the learner's color always yours, also inside a variation. Answer the "
-        "question that was asked, first. When asked what "
+        "question that was asked, first. When asked about the idea of a move, start from evaluate_move's "
+        "'if_not_played' (what the other side would play there if the mover passed) and 'worth_vs_pass_points' "
+        "when they are given; mention shapes only to support that, never as the idea itself. When asked what "
         "happens after a move, call show_variation with that move and describe the line it returns. Explain with "
         "what the tools return (locations, captures, ataris, liberties, points), not with generic advice such as "
         "'stay calm', 'hang on' or 'keep it simple'. Never mention engine internals (prior, policy, visits, "
         "instructiveness), and never invent moves, coordinates, variations or numbers: mention only coordinates that "
         "a tool returned or the question named. When one side's winning chance is above 95%, talk in points. "
+        "A score at the end of a variation comes from a separate search, so say it is the score after the whole line "
+        "and do not compare it with a score from evaluate_move. "
         f"Answer in {language}, in plain prose without markdown, in at most {max_sentences} sentences."
     )
 
@@ -962,6 +1142,19 @@ class MetaExplainer:
         self._remember(analysis)
         return analysis
 
+    def threat_after_pass(self, pos: Position, move: Any, my_score_lead: float | None) -> dict[str, Any] | None:
+        """threat_facts for `move` in pos: one extra engine query on the position after a pass by the side to move
+        (v4). None when passing would end the game or the engine or the game cannot answer."""
+        if pos.moves and str(pos.moves[-1][1]).lower() == PASS:
+            return None
+        try:
+            passed = self.game.play(pos, PASS)
+            if self.game.is_terminal(passed):
+                return None
+            return threat_facts(self.game, pos, move, self.analysis_for(passed), my_score_lead)
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError):
+            return None
+
     def _reliable(self, analysis: EngineAnalysis) -> list[Candidate]:
         """The selector's reliability rule (INTERFACES.md step 1), so losses are measured against a stable best."""
         total = sum(c.visits for c in analysis.candidates)
@@ -993,7 +1186,9 @@ class MetaExplainer:
         lang: str = "en",
     ) -> Explanation:
         """Explain the chosen move from the engine facts; grounded_on holds the exact numbers sent."""
-        facts = explanation_facts(analysis, choice, learner, game=self.game)
+        mine = next((c for c in analysis.candidates if c.move == choice.move), None)
+        threat = self.threat_after_pass(analysis.position, choice.move, None if mine is None else mine.score_lead)
+        facts = explanation_facts(analysis, choice, learner, game=self.game, threat=threat)
         messages = build_explanation_messages(
             analysis, choice, learner, lang, max_sentences=self.max_sentences, facts=facts
         )
@@ -1243,6 +1438,17 @@ class MetaExplainer:
         size = _board_size(pos)
         mover, other = self._label(pos.to_move), self._label(_opponent(pos.to_move))
         on_board = local_text(local_facts(self.game, pos, played), f"{mover}'s", f"{other}'s")
+        threat = self.threat_after_pass(pos, played, score_lead) if played != PASS else None
+        if_not_played = None
+        if threat and threat.get("local"):
+            if_not_played = {
+                "by": other,
+                "move": threat["move"],
+                "where": describe_point(threat["move"], size),
+                "same_point": threat["same_point"],
+                "what_it_would_do": threat_text(threat.get("facts"), f"{mover}'s", f"{other}'s") or None,
+            }
+        worth = None if threat is None else threat.get("worth_points")
         return {
             "move": played,
             "by": mover,
@@ -1256,6 +1462,8 @@ class MetaExplainer:
             "best_where": describe_point(best.move, size),
             "best_winrate_pct": _pct(best.value),
             "on_the_board": on_board or None,
+            "if_not_played": if_not_played,
+            "worth_vs_pass_points": worth if worth is not None and worth >= 0.5 else None,
             "source": source,
         }
 

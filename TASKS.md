@@ -121,6 +121,11 @@ HUMAN gate: the human grades each explanation 1 to 5 (correct, grounded, useful 
 Mean of at least 3.5 passes. Otherwise iterate the prompt at most twice, then fall back to a template
 explanation that the model only polishes. Calibrate `selector.entropy_low` and `selector.entropy_high` in
 `configs/default.yaml` on this set; the human approves.
+Deviation (2026-11-04, approved by the human in chat): v1 graded 2.50 (`results/explanations_v1_grades.md`); prompt
+v2 and v3 were the two rounds, v3.1 fixed one wrong fact (the engine's top move) and graded 3.25
+(`results/explanations_v3.1_grades.md`), below 3.5. Instead of the template, a third round (v4) adds engine-grounded
+reasons (what the learner would play if Sensei passed, connections, rescued groups), because every 3 in the grades
+asked for the purpose of a move and the template carries the same facts as v3.1. If v4 is below 3.5, the template.
 
 ## T6 Learner model (Oct 30)
 

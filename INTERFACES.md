@@ -109,13 +109,19 @@ the current target topic. The game result comes from the sign of the main net's 
   (`describe_point`), what the chosen move does to the stones next to it and its shape relations (`local_facts`),
   the winning chances and the score in points, the comparison with the engine's top move, why the selector chose
   it (from the instructiveness and the position class, without the numbers) and the engine's expected answer. The
-  v1 numeric facts stay in `Explanation.grounded_on` for the app and the logs.
+  v1 numeric facts stay in `Explanation.grounded_on` for the app and the logs. Since prompt v4 the reason for a move
+  also comes from the engine: `MetaExplainer.threat_after_pass` runs one extra analysis of the position after a
+  pass by Sensei, and `threat_facts` records the other side's top move there, whether it is within 4 points of
+  Sensei's move, what it would do to Sensei's stones (`local_facts` from the other side's view) and how many points
+  Sensei's move is worth against passing. `local_facts` also reports groups a move connects (`joins`) and groups
+  it gives more liberties after they had 2 or fewer (`own_before`, `rescued`).
 - `TOOLS`: OpenAI-format function schemas, each with `additionalProperties: false`:
   - `analyze_position(top_k: int)`: candidates of the current position (move, where, winrate, score lead), with
     the side the numbers are for.
   - `evaluate_move(move: str)`: the engine's evaluation of one legal move (where, winrate and score lead after it,
-    its loss against the engine's top move, meaning its most-searched candidate, and what it does to the stones
-    next to it).
+    its loss against the engine's top move, meaning its most-searched candidate, what it does to the stones next to
+    it, `if_not_played`: what the other side would play within 4 points of it if the side to move passed, and
+    `worth_vs_pass_points`).
   - `show_variation(moves: list[str])`: replays the moves with `GoGame` from the current position, rejecting
     illegal ones, returns the engine's evaluation of the end position; the UI draws the sequence.
   - `get_learner_profile()`: rank estimate, top weakness topics, current target topic.

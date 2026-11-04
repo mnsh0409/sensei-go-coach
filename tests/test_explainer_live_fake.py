@@ -380,7 +380,8 @@ def test_evaluate_move_handles_illegal_and_non_candidate_moves(tmp_path):
     result = ex.tool_evaluate_move(pos, "d4")
     assert result["move"] == "D4" and result["source"].startswith("second query")
     assert result["winrate_pct"] == 55.0 and result["loss_pct"] == 5.0
-    assert len(engine.queries) == 2
+    # root, the position after D4, and (v4) the position after a pass for what the other side would play instead
+    assert len(engine.queries) == 3 and engine.queries[2].moves[-1] == ("B", "pass")
 
 
 def test_bad_tool_arguments_and_unknown_tools_return_errors(tmp_path):

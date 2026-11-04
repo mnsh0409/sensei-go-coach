@@ -31,9 +31,11 @@ checked against the engine's own numbers before it reaches the screen.
   immediate explanation.
 - **Grounded explanations.** The model receives only facts computed by code: the engine's numbers, where each
   point is in Go terms ("right side, 2nd line"), and what a move does to the stones around it (captures, ataris,
-  liberties, and shapes such as a one-space jump or a knight's move). The prompt names Sensei's color and the
-  learner's, so "I" and "you" always point at the right stones, and it bans engine internals such as policy priors
-  and visit counts. A guard rejects any reply that names a board coordinate absent from those facts or the tool
+  liberties, connections, and shapes such as a one-space jump or a knight's move). The reason for a move comes from
+  the engine too: one extra search finds what the learner would play there if Sensei passed and what that move would
+  do to Sensei's stones, and how many points Sensei's move is worth against passing. The prompt names Sensei's color
+  and the learner's, so "I" and "you" always point at the right stones, and it bans engine internals such as policy
+  priors and visit counts. A guard rejects any reply that names a board coordinate absent from those facts or the tool
   results: it asks once for a correction, then drops offending sentences, then falls back to a template.
 
 ## Meta models and API features used
