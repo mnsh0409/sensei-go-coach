@@ -49,7 +49,7 @@ LANGUAGE_NAMES = {
     "ja": "Japanese",
 }
 FALLBACK_ASK_TEXT = "Sensei could not finish answering within its tool budget; please ask a narrower question."
-PROMPT_VERSION = "v4"
+PROMPT_VERSION = "v4.1"
 """Version of the explanation and Ask Sensei prompts; recorded with every explanation set (results/explanations_*).
 
 v2 (2026-11-04, after the T5 grading of v1): the prompts name the learner's color and Sensei's ("I" and "you"),
@@ -68,6 +68,9 @@ comes from the engine, not the model: what the other side would play near it if 
 would do to Sensei's stones (`threat_facts`, one extra engine query), and how many points the move is worth against
 passing; moves that connect two groups say so; the position type no longer contradicts an only move; a move that
 gives up 2 points or more is not called the best; "a likely answer for you is"; location words for at most two points.
+v4.1 (2026-11-04, a fix to the facts after a review of the v4 outputs, the prompt wording is v4's): the other side's
+move after a pass is a reason only when it captures, ataris, rescues or connects (`threat_sharp`), and a forcing
+move (the expected answer next to it, then the engine's top move) is named as one (`forcing_exchange`).
 """
 DECIDED = 0.95
 """Above this winning chance (or below 1 - DECIDED) the prompts ask for points instead of percentages."""
@@ -488,6 +491,21 @@ def threat_facts(
     }
 
 
+def forcing_exchange(move: Any, pv: Sequence[str] | None, top_move: Any, size: int) -> dict[str, str] | None:
+    """A forcing move (sente) by the engine's own line (v4.1): the line starts with `move`, the other side's
+    expected answer is within THREAT_RADIUS of it, and the mover's next move in the line is the engine's top move,
+    which `move` is not. Returns {"reply", "then"} or None."""
+    if not pv or len(pv) < 3 or pv[0] != move or not top_move or move == top_move:
+        return None
+    reply, then = str(pv[1]), str(pv[2])
+    if PASS in (reply.lower(), then.lower()) or then != top_move:
+        return None
+    distance = _distance(reply, str(move), size)
+    if distance is None or distance > THREAT_RADIUS:
+        return None
+    return {"reply": reply, "then": then}
+
+
 def threat_sharp(threat: Mapping[str, Any] | None) -> bool:
     """A local threat that captures, ataris, leaves a group of the passer with 2 liberties or fewer, connects, or
     rescues a group of its own that had 2 liberties or fewer."""
@@ -642,6 +660,9 @@ def explanation_facts(
     if mine is not None and mine.pv and mine.pv[0] == choice.move:
         continuation = [m for m in mine.pv[1:3] if m != PASS]
     local = local_facts(game, pos, choice.move) if game is not None else None
+    forcing = None
+    if mine is not None and best is not None:
+        forcing = forcing_exchange(choice.move, mine.pv, best.move, size)
     points = [choice.move, *(c.move for c in shown), *continuation]
     if best is not None:
         points.append(best.move)
@@ -687,6 +708,7 @@ def explanation_facts(
         "continuation": continuation,
         "local": local,
         "threat": None if threat is None else dict(threat),
+        "forcing": forcing,
     }
 
 
@@ -768,7 +790,7 @@ def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
             leader = f"{me} (me)" if lead > 0 else f"{you} (you)"
             lines.append(f"Score after my move, by the engine's count: {leader} ahead by about {abs(lead):.1f} points.")
     threat = facts.get("threat") or {}
-    if threat.get("local"):
+    if threat_sharp(threat):  # v4.1: a threat that does nothing to the stones is no reason for my move
         clause = threat_text(threat.get("facts"), "my", "your")
         if threat.get("same_point"):
             head = f"If I had passed instead, your best move would be this same point, {facts['move']}"
@@ -822,6 +844,12 @@ def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
         why = f"it keeps my winning chances, and players around {rank} often find it too"
     if threat_sharp(threat):
         why += "; the main reason to play here is what you would do here if I passed (above)"
+    forcing = facts.get("forcing")
+    if forcing:
+        why += (
+            f"; it is a forcing move (sente): the engine expects your answer at {forcing['reply']} next to it, and "
+            f"then I still play {forcing['then']}, the engine's top move, so I play my move first"
+        )
     lines.append(f"Why I chose it: {why}.")
     cont = facts.get("continuation") or []
     if cont:
@@ -990,7 +1018,7 @@ def template_explanation(facts: Mapping[str, Any]) -> str:
     else:
         parts.append("It is also the engine's top move.")
     threat = facts.get("threat") or {}
-    clause = threat_text(threat.get("facts"), "my", "your") if threat.get("local") else ""
+    clause = threat_text(threat.get("facts"), "my", "your") if threat_sharp(threat) else ""
     if clause:
         parts.append(f"If I had passed, your best move would be {threat['move']}: {clause}.")
     return " ".join(parts)
@@ -1019,23 +1047,23 @@ def _ask_system_prompt(
             f"It is move {number}, {to_move} to play. "
         )
     return (
-        opening
-        + f"The board is {_board_size(pos)}x{_board_size(pos)}. Tools: analyze_position (the engine's top moves), "
-        "evaluate_move (one move: winning chance, points, and what it does to the stones next to it), show_variation "
-        "(plays a sequence on the learner's board and evaluates the end position) and get_learner_profile (rank "
-        "estimate and weak topics). Every tool result says which side its numbers are for ('for') and where each "
-        "point is ('where'); use those location words. They also say who plays each move ('by'): a move by Sensei's "
-        "color is always my move and a move by the learner's color always yours, also inside a variation. Answer the "
-        "question that was asked, first. When asked about the idea of a move, start from evaluate_move's "
-        "'if_not_played' (what the other side would play there if the mover passed) and 'worth_vs_pass_points' "
-        "when they are given; mention shapes only to support that, never as the idea itself. When asked what "
-        "happens after a move, call show_variation with that move and describe the line it returns. Explain with "
-        "what the tools return (locations, captures, ataris, liberties, points), not with generic advice such as "
-        "'stay calm', 'hang on' or 'keep it simple'. Never mention engine internals (prior, policy, visits, "
-        "instructiveness), and never invent moves, coordinates, variations or numbers: mention only coordinates that "
-        "a tool returned or the question named. When one side's winning chance is above 95%, talk in points. "
-        "A score at the end of a variation comes from a separate search, so say it is the score after the whole line "
-        "and do not compare it with a score from evaluate_move. "
+        opening + f"The board is {_board_size(pos)}x{_board_size(pos)}. "
+        "Tools: analyze_position (the engine's top moves), evaluate_move (one move: winning chance, points, and what "
+        "it does to the stones next to it), show_variation (plays a sequence on the learner's board and evaluates the"
+        " end position) and get_learner_profile (rank estimate and weak topics). Every tool result says which side "
+        "its numbers are for ('for') and where each point is ('where'); use those location words. They also say who "
+        "plays each move ('by'): a move by Sensei's color is always my move and a move by the learner's color always "
+        "yours, also inside a variation. Answer the question that was asked, first. When asked about the idea of a "
+        "move, start from evaluate_move's 'if_not_played' (what the other side would play there if the mover passed),"
+        " 'forcing_exchange' (a forcing move: the other side answers next to it and the mover then plays the engine's"
+        " top move) and 'worth_vs_pass_points' when they are given; mention shapes only to support that, never as the"
+        " idea itself. When asked what happens after a move, call show_variation with that move and describe the line"
+        " it returns. Explain with what the tools return (locations, captures, ataris, liberties, points), not with "
+        "generic advice such as 'stay calm', 'hang on' or 'keep it simple'. Never mention engine internals (prior, "
+        "policy, visits, instructiveness), and never invent moves, coordinates, variations or numbers: mention only "
+        "coordinates that a tool returned or the question named. When one side's winning chance is above 95%, talk in"
+        " points. A score at the end of a variation comes from a separate search, so say it is the score after the "
+        "whole line and do not compare it with a score from evaluate_move. "
         f"Answer in {language}, in plain prose without markdown, in at most {max_sentences} sentences."
     )
 
@@ -1440,7 +1468,7 @@ class MetaExplainer:
         on_board = local_text(local_facts(self.game, pos, played), f"{mover}'s", f"{other}'s")
         threat = self.threat_after_pass(pos, played, score_lead) if played != PASS else None
         if_not_played = None
-        if threat and threat.get("local"):
+        if threat_sharp(threat):
             if_not_played = {
                 "by": other,
                 "move": threat["move"],
@@ -1464,6 +1492,9 @@ class MetaExplainer:
             "on_the_board": on_board or None,
             "if_not_played": if_not_played,
             "worth_vs_pass_points": worth if worth is not None and worth >= 0.5 else None,
+            "forcing_exchange": None
+            if candidate is None or best is None
+            else forcing_exchange(played, candidate.pv, best.move, size),
             "source": source,
         }
 

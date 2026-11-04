@@ -114,14 +114,16 @@ the current target topic. The game result comes from the sign of the main net's 
   pass by Sensei, and `threat_facts` records the other side's top move there, whether it is within 4 points of
   Sensei's move, what it would do to Sensei's stones (`local_facts` from the other side's view) and how many points
   Sensei's move is worth against passing. `local_facts` also reports groups a move connects (`joins`) and groups
-  it gives more liberties after they had 2 or fewer (`own_before`, `rescued`).
+  it gives more liberties after they had 2 or fewer (`own_before`, `rescued`). Since v4.1 that move is stated only
+  when it captures, ataris, rescues or connects (`threat_sharp`), and a forcing move is named when the engine's own
+  line answers next to it and Sensei then plays the engine's top move (`forcing_exchange`).
 - `TOOLS`: OpenAI-format function schemas, each with `additionalProperties: false`:
   - `analyze_position(top_k: int)`: candidates of the current position (move, where, winrate, score lead), with
     the side the numbers are for.
   - `evaluate_move(move: str)`: the engine's evaluation of one legal move (where, winrate and score lead after it,
     its loss against the engine's top move, meaning its most-searched candidate, what it does to the stones next to
     it, `if_not_played`: what the other side would play within 4 points of it if the side to move passed, and
-    `worth_vs_pass_points`).
+    `worth_vs_pass_points`, and `forcing_exchange`).
   - `show_variation(moves: list[str])`: replays the moves with `GoGame` from the current position, rejecting
     illegal ones, returns the engine's evaluation of the end position; the UI draws the sequence.
   - `get_learner_profile()`: rank estimate, top weakness topics, current target topic.

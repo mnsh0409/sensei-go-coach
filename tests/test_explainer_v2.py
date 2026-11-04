@@ -65,7 +65,7 @@ def test_explanation_prompt_v2_voice_locations_and_no_jargon():
     assert (
         facts["sensei_color"] == "W"
         and facts["learner_color"] == "B"
-        and facts["prompt_version"] == ex.PROMPT_VERSION == "v4"
+        and facts["prompt_version"] == ex.PROMPT_VERSION == "v4.1"
     )
     assert facts["best_move"] == "R14" and facts["points_vs_best"] == 2.5 and facts["continuation"] == ["R14"]
     assert facts["where"]["Q5"] == "lower-right corner (4-5 point)"
@@ -303,3 +303,41 @@ def test_v4_a_move_that_rescues_a_short_group_says_so():
     assert ex.rescued(local) == [{"stone": "D4", "stones": 1, "liberties": 2}]
     assert "It gives my stones at D4 4 liberties instead of 2." in ex.local_text(local, "my", "your")
     assert ex.rescued(ex.local_facts(game, pos, "K10")) == []
+
+
+def test_v4_1_a_threat_that_does_nothing_to_the_stones_is_not_a_reason(tmp_path):
+    game, pos = play(["C4", "D4", "E4", "Q16"])  # Black (Sensei) plays K10; after a pass White's best is K13
+    cands = (Candidate("K10", 0.6, 0.62, 150, 4.0, ("K10",)), Candidate("Q4", 0.4, 0.61, 50, 3.5, ("Q4",)))
+    analysis = EngineAnalysis(pos, cands, {c.move: c.prior for c in cands}, 0.60)
+    choice = Choice("K10", 0.8, 0.0, PositionClass.STRATEGIC, {"K10": 0.8}, ("K10", "Q4"))
+    client = Client()
+    explainer = ex.MetaExplainer(
+        client, PassEngine(analysis, "K13", score=-1.0), game, {"explainer": {}}, model="m", log_path=tmp_path / "a"
+    )
+    out = explainer.explain(analysis, choice, LearnerEstimate(rank=-9.0, rank_sd=1.0, n_moves=40))
+    assert out.grounded_on["threat"]["local"] and not ex.threat_sharp(out.grounded_on["threat"])
+    user = client.calls[0]["messages"][1]["content"]
+    assert "If I had passed" not in user and "Compared with passing, my move is worth about 3.0 points" in user
+    assert explainer.tool_evaluate_move(pos, "K10")["if_not_played"] is None
+
+
+def test_v4_1_forcing_exchange_from_the_engine_line(tmp_path):
+    assert ex.forcing_exchange("D7", ("D7", "C6", "F4"), "F4", 19) == {"reply": "C6", "then": "F4"}
+    assert ex.forcing_exchange("D7", ("D7", "Q16", "F4"), "F4", 19) is None  # the answer is not next to it
+    assert ex.forcing_exchange("D7", ("D7", "C6", "K10"), "F4", 19) is None  # then not the top move
+    assert ex.forcing_exchange("F4", ("F4", "C6", "F4"), "F4", 19) is None  # my move is the top move
+    game, pos = play(["D4", "Q16", "C16", "Q3", "R4"])  # White (Sensei) to move
+    cands = (
+        Candidate("R14", 0.30, 0.62, 120, 4.5, ("R14",)),
+        Candidate("Q5", 0.40, 0.61, 90, 4.2, ("Q5", "R5", "R14")),
+    )
+    analysis = EngineAnalysis(pos, cands, {c.move: c.prior for c in cands}, 0.60)
+    choice = Choice("Q5", 0.8, 0.01, PositionClass.TACTICAL, {"Q5": 0.8}, ("R14", "Q5"))
+    facts = ex.explanation_facts(analysis, choice, LearnerEstimate(rank=-9.0, rank_sd=1.0, n_moves=40), game=game)
+    assert facts["forcing"] == {"reply": "R5", "then": "R14"}
+    user = ex.build_explanation_messages(analysis, choice, None, max_sentences=4, facts=facts)[1]["content"]
+    assert "it is a forcing move (sente): the engine expects your answer at R5 next to it" in user
+    explainer = ex.MetaExplainer(
+        Client(), Engine(analysis), game, {"explainer": {}}, model="m", log_path=tmp_path / "a"
+    )
+    assert explainer.tool_evaluate_move(pos, "Q5")["forcing_exchange"] == {"reply": "R5", "then": "R14"}
