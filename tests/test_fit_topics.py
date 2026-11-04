@@ -35,7 +35,9 @@ def test_topic_model_json_round_trip(tmp_path):
     loaded = LdaMistakeTopics.load(path)
     for bag in bags[:25] + [{"unknown": 1}, {"phase:end": 2, "unknown": 5}]:
         assert np.allclose(model.assign(bag), loaded.assign(bag), atol=1e-9)
-    assert loaded.describe(2, 5) == pytest.approx(model.describe(2, 5))
+    got, want = loaded.describe(2, 5), model.describe(2, 5)
+    assert [w for w, _ in got] == [w for w, _ in want]
+    assert [p for _, p in got] == pytest.approx([p for _, p in want])
     assert json.loads(path.read_text(encoding="utf-8"))["suggested_names"] == ["a", "b", "c", "d"]
     with pytest.raises(ValueError):
         LdaMistakeTopics.from_json({"kind": "something else"})

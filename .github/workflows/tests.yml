@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the pinned environment
+        run: |
+          python -m pip install -r requirements.lock
+          python -m pip install -e . --no-deps
+      - name: Lint
+        run: python -m ruff check .
+      - name: Offline tests (KataGo and Meta Model API tests are skipped by marker)
+        run: python -m pytest -q
+      - name: Every number in the README and the video script comes from results/
+        run: python scripts/check_numbers.py

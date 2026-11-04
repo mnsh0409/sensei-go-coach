@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use Sensei, please cite it as below."
+title: "Sensei: a Go coach that teaches by playing"
+type: software
+authors:
+  - family-names: Ng
+    given-names: Siu Hin
+version: 0.1.0
+date-released: 2026-11-05
+license: MIT
+abstract: >-
+  A Go coaching agent: KataGo proposes moves, a selector plays the strong move a player of the learner's rank
+  would rarely find under an explicit strength bound, and Muse Spark (Meta Model API) explains it and answers
+  questions by calling engine tools, grounded only on facts computed from the engine and the board.
+keywords:
+  - go
+  - baduk
+  - weiqi
+  - katago
+  - large language models
+  - tool calling
+  - education

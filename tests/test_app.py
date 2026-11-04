@@ -712,7 +712,8 @@ def test_replay_mode_serves_a_recording_and_refuses_to_play(env, finished, tmp_p
         info = client.get("/api/info").json()
         assert info["mode"] == "replay" and info["playable"] is False
         listing = client.get("/api/replay").json()
-        assert listing["default"] == name and [r["name"] for r in listing["recordings"]] == [name]
+        # the pinned file is the default; results/ may also hold a committed demo recording (TASKS.md T9)
+        assert listing["default"] == name and name in [r["name"] for r in listing["recordings"]]
         assert client.get(f"/api/replay/{name}").json()["summary"] == finished.summary
         refused = client.post("/api/game", json={"learner_id": "someone", "rank": "10k"})
         assert refused.status_code == 409 and "replay" in refused.json()["detail"]
