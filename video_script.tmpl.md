@@ -1,9 +1,8 @@
 # Video script (under 3 minutes)
 
 `scripts/render_readme.py` writes `video_script.md` from this file; the numbers in the results block come from
-`results/`. Record the game segments in replay mode (`python -m sensei.app --replay results/demo_game.json`): the
-game was played live on the dev PC, and replay removes the wait for each explanation. Say on screen that it is a
-recorded live game.
+`results/`. The game segments are replay-mode captures of `results/demo_game.json` (a game played live on the dev
+PC; replay removes the wait for each explanation), labelled on screen as a recorded live game.
 
 ## 0:00 to 0:15 The problem
 
@@ -27,9 +26,9 @@ Screen: Sensei's E15 (move 88).
 ## 1:15 to 1:50 Ask Sensei
 
 Voice: "I can ask anything. Muse Spark answers by calling engine tools, and every variation it mentions is drawn
-on the board. Asked why it played C16 and not D17, it shows what I would have played if it had passed. Asked
-whether my corner will die, it says the tools cannot show that for certain, then shows the line they do show. A
-guard rejects any point the tools never returned."
+on the board. Asked why it played C16 and not D17, it answers from the engine: C16 was its top move, and D17 is now
+my best reply. Asked whether my corner will die, it says the tools cannot show that for certain, then shows the
+line they do show. A guard rejects any point the tools never returned."
 Screen: the question at move 18 ("Why did you play C16 not D17?"), then the one at move 74 ("Will the corner
 die?") with its variation drawn on the board.
 
