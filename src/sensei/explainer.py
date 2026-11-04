@@ -49,7 +49,7 @@ LANGUAGE_NAMES = {
     "ja": "Japanese",
 }
 FALLBACK_ASK_TEXT = "Sensei could not finish answering within its tool budget; please ask a narrower question."
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v3.1"
 """Version of the explanation and Ask Sensei prompts; recorded with every explanation set (results/explanations_*).
 
 v2 (2026-11-04, after the T5 grading of v1): the prompts name the learner's color and Sensei's ("I" and "you"),
@@ -60,6 +60,9 @@ v3 (2026-11-04, after a review of the v2 outputs): "my new stone" instead of the
 stones for quiet moves, no winning percentages at all once one side is far ahead (v2's instruction to talk in points
 leaked into the text), "about even" for a score near zero, the points given up against the engine's top move as a
 required part of the reason, and every move in a tool result labelled with who plays it.
+v3.1 (2026-11-04, a fix to one fact, the prompt wording is v3's): "the engine's top move" is the engine's
+most-searched move (`_engine_top`) in the explanation facts, the template and `evaluate_move`, not the
+admissible move with the highest winrate, and the facts say so when my move scores more points than it.
 """
 DECIDED = 0.95
 """Above this winning chance (or below 1 - DECIDED) the prompts ask for points instead of percentages."""
@@ -473,12 +476,12 @@ def _candidate_facts(c: Candidate) -> dict[str, Any]:
     }
 
 
-def _best_of(analysis: EngineAnalysis, choice: Choice) -> Candidate | None:
-    """The engine's best move by value: the strongest admissible candidate (the selector's best reliable move is
-    always admissible), else the first candidate."""
-    admissible = set(choice.admissible)
-    pool = [c for c in analysis.candidates if c.move in admissible] or list(analysis.candidates[:1])
-    return max(pool, key=lambda c: (float(c.value), int(c.visits))) if pool else None
+def _engine_top(analysis: EngineAnalysis) -> Candidate | None:
+    """The engine's top move: its most-searched candidate (candidates come in visit order), the move KataGo and
+    every Go interface built on it show first. v3 used the admissible candidate with the highest winrate instead,
+    which is a different move whenever two winrates are within noise and, in decided games, can hide a gap of
+    several points (v3.1)."""
+    return analysis.candidates[0] if analysis.candidates else None
 
 
 def explanation_facts(
@@ -503,7 +506,7 @@ def explanation_facts(
             shown.append(chosen)
     last = pos.moves[-1] if pos.moves else None
     mine = next((c for c in analysis.candidates if c.move == choice.move), None)
-    best = _best_of(analysis, choice)
+    best = _engine_top(analysis)
     points_vs_best = None
     if mine is not None and best is not None and mine.score_lead is not None and best.score_lead is not None:
         points_vs_best = round(float(best.score_lead) - float(mine.score_lead), 1)
@@ -624,13 +627,16 @@ def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
     if best and best != facts["move"]:
         detail = []
         if gap is not None:
-            detail.append(f"about {gap:.1f} points better for me" if gap >= 0.5 else "about the same in points")
+            if gap >= 0.5:
+                detail.append(f"about {gap:.1f} points better for me")
+            elif gap <= -0.5:
+                detail.append(f"my move scores about {-gap:.1f} points more by the engine's count")
+            else:
+                detail.append("about the same in points")
         if not decided and facts.get("best_winrate_pct") is not None and facts.get("my_winrate_pct") is not None:
             best_wr, my_wr = float(facts["best_winrate_pct"]), float(facts["my_winrate_pct"])
-            detail.append(
-                f"winning chances {best_wr:.1f}% against {my_wr:.1f}% for my move "
-                f"(a loss of {float(facts['value_loss_pct']):.1f}%)"
-            )
+            loss = f" (a loss of {best_wr - my_wr:.1f}%)" if best_wr - my_wr >= 0.05 else ""
+            detail.append(f"winning chances {best_wr:.1f}% for it against {my_wr:.1f}% for my move{loss}")
         lines.append(f"The engine's top move was {_at(best, where)}: {'; '.join(detail) or 'close to mine'}.")
     else:
         mine_wr = facts.get("my_winrate_pct")
@@ -805,6 +811,8 @@ def template_explanation(facts: Mapping[str, Any]) -> str:
     if best and best != facts["move"]:
         if gap is not None and gap >= 0.5:
             parts.append(f"The engine's top move was {best}, about {gap:.1f} points better by its count.")
+        elif gap is not None and gap <= -0.5:
+            parts.append(f"The engine's top move was {best}; mine scores about {-gap:.1f} points more by its count.")
         else:
             parts.append(f"The engine's top move was {best}, about as good as mine.")
     else:
@@ -1221,7 +1229,7 @@ class MetaExplainer:
         if played not in set(self.game.legal_moves(pos)):
             return {"error": f"{played} is not a legal move in the current position"}
         analysis = self.analysis_for(pos)
-        best = max(self._reliable(analysis), key=lambda c: (c.value, c.visits))
+        best = _engine_top(analysis) or max(self._reliable(analysis), key=lambda c: (c.value, c.visits))
         candidate = next((c for c in analysis.candidates if c.move == played), None)
         if candidate is not None:
             winrate, score_lead = candidate.value, candidate.score_lead

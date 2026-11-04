@@ -4,9 +4,6 @@ A Go coach that teaches by playing. KataGo finds the moves; Muse Spark, through 
 them in plain language, answers the learner's questions by calling engine tools, and every explanation is
 checked against the engine's own numbers before it reaches the screen.
 
-> Draft template (TASKS.md T10). Edit this file, not `README.md`: `scripts/render_readme.py` renders every
-> `{{token}}` inside the results blocks from clean result files, and `scripts/check_numbers.py` verifies them.
-
 ## What it does
 
 1. Pick an approximate rank (20k to 5d) and play a 19x19 game against Sensei.
@@ -31,9 +28,12 @@ checked against the engine's own numbers before it reaches the screen.
   captures, contact, tenuki). Topics are fitted with LDA on windows of mistakes from public games; a discounted
   Thompson-sampling curriculum picks the topic where you err most, and that topic decides which mistakes get an
   immediate explanation.
-- **Grounded explanations.** The model receives only engine numbers. A guard rejects any reply that names a
-  board coordinate absent from the tool results: it asks once for a correction, then drops offending sentences,
-  then falls back to a template.
+- **Grounded explanations.** The model receives only facts computed by code: the engine's numbers, where each
+  point is in Go terms ("right side, 2nd line"), and what a move does to the stones around it (captures, ataris,
+  liberties, and shapes such as a one-space jump or a knight's move). The prompt names Sensei's color and the
+  learner's, so "I" and "you" always point at the right stones, and it bans engine internals such as policy priors
+  and visit counts. A guard rejects any reply that names a board coordinate absent from those facts or the tool
+  results: it asks once for a correction, then drops offending sentences, then falls back to a template.
 
 ## Meta models and API features used
 
@@ -50,9 +50,9 @@ rendered from a result file in `results/` written by `eval/run.py` from a clean 
 <!-- results -->
 | Claim | Result | Pre-registered criterion | Verdict |
 |---|---|---|---|
-| C1 Strength cost of teaching | {{C1.elo}} Elo ({{C1.ci_pct}}% CI {{C1.lo}} to {{C1.hi}}) over {{C1.n}} games against the raw engine, epsilon {{C1.eps}} | upper end of the CI below {{C1.threshold}} Elo | {{C1.verdict}} |
-| C2 Lesson relevance on human games | uplift {{C2.U_pct}} percentage points ({{C2.ci_pct}}% CI {{C2.lo_pct}} to {{C2.hi_pct}}) over {{C2.n}} positions | CI above zero | {{C2.verdict}} |
-| C3 Curriculum (simulation) | gap closure {{C3.gap}} ({{C3.ci_pct}}% CI {{C3.gap_lo}} to {{C3.gap_hi}}) over {{C3.learners}} simulated learners | Thompson below round robin, CI excluding zero | {{C3.verdict}} |
+| C1 Strength cost of teaching | strength cost {{C1.elo}} Elo, positive meaning Sensei is weaker ({{C1.ci_pct}}% CI {{C1.lo}} to {{C1.hi}}), score rate {{C1.score_pct}}% over {{C1.n}} games against the raw engine, epsilon {{C1.eps}} | upper end of the CI below {{C1.threshold}} Elo | {{C1.verdict}} |
+| C2 Lesson relevance on human games | uplift {{C2.U_pct:.2f}} percentage points ({{C2.ci_pct}}% CI {{C2.lo_pct:.2f}} to {{C2.hi_pct:.2f}}) over {{C2.n}} positions | CI above zero | {{C2.verdict}} |
+| C3 Curriculum (simulation) | mistake-rate AUC of round robin minus Thompson {{C3.auc_diff}} ({{C3.ci_pct}}% CI {{C3.lo}} to {{C3.hi}}) over {{C3.learners}} simulated learners; Thompson closes {{C3.gap_pct}}% of the gap to an oracle ({{C3.ci_pct}}% CI {{C3.details.gap_closure.ci.0:.0%}} to {{C3.details.gap_closure.ci.1:.0%}}) | Thompson below round robin, CI excluding zero | {{C3.verdict}} |
 
 C1 ran {{C1.queries}} engine searches in {{C1.hours}} hours on one {{C1.gpu}} with {{C1.conc}} games in flight.
 Deviations from the pre-registration, each listed with its reason in the result file: C1 {{C1.n_deviations}},
@@ -104,6 +104,12 @@ Every game is recorded to `sessions/`; replay mode needs neither a GPU nor an AP
 ## Limitations
 
 - C3 is a simulation, not a study with people; C2 measures relevance on recorded games, not learning gains.
+- C2's uplift is small and, compared on the same positions with the engine's best move and a random admissible
+  move, not specific to Sensei's choice: stronger players play every good move more often (the context paragraph
+  under the evaluation table).
+- The rank estimate is close for dan players and off by several ranks for kyu players in a held-out check
+  (`results/learner_check.json`, descriptive), so Sensei can start too strong for a weaker player until it has
+  seen enough of their moves.
 - Rank labels come from the game server's scale, which need not match the scale of the HumanSL training data.
 - Explanations can only be as good as the engine numbers they are grounded on, and the guard checks
   coordinates, not reasoning.

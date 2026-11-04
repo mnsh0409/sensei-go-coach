@@ -65,7 +65,7 @@ def test_explanation_prompt_v2_voice_locations_and_no_jargon():
     assert (
         facts["sensei_color"] == "W"
         and facts["learner_color"] == "B"
-        and facts["prompt_version"] == ex.PROMPT_VERSION == "v3"
+        and facts["prompt_version"] == ex.PROMPT_VERSION == "v3.1"
     )
     assert facts["best_move"] == "R14" and facts["points_vs_best"] == 2.5 and facts["continuation"] == ["R14"]
     assert facts["where"]["Q5"] == "lower-right corner (4-5 point)"
@@ -168,3 +168,38 @@ def test_v3_quiet_moves_name_the_nearest_stones_and_my_new_stone():
         ex.describe_point("K6") == "center, toward the bottom"
         and ex.describe_point("F14") == "center, toward the top-left"
     )
+
+
+def test_v3_1_engine_top_is_the_most_searched_move_not_the_highest_winrate():
+    # D17 is searched most but R14 has the higher winrate: the engine's top move is D17 (what KataGo shows first).
+    game, analysis, choice, learner = sample_facts()
+    cands = (
+        Candidate("D17", 0.30, 0.60, 150, 3.0, ("D17",)),
+        Candidate("R14", 0.30, 0.62, 120, 4.5, ("R14", "Q5", "R6")),
+        Candidate("Q5", 0.40, 0.61, 90, 4.0, ("Q5", "R14")),
+    )
+    top = EngineAnalysis(analysis.position, cands, {c.move: c.prior for c in cands}, 0.60)
+    facts = ex.explanation_facts(top, choice, learner, game=game)
+    assert facts["best_move"] == "D17" and facts["points_vs_best"] == -1.0
+    user = ex.build_explanation_messages(top, choice, learner, max_sentences=4, facts=facts)[1]["content"]
+    assert "The engine's top move was D17" in user and "my move scores about 1.0 points more" in user
+    assert "My move is also the engine's top move" not in user and "a loss of" not in user  # my move is stronger
+    assert "mine scores about 1.0 points more" in ex.template_explanation(facts)
+    # The choice itself being searched most is the only case that says "also the engine's top move".
+    first = EngineAnalysis(analysis.position, (cands[2], cands[0], cands[1]), top.policy, 0.60)
+    facts = ex.explanation_facts(first, choice, learner, game=game)
+    user = ex.build_explanation_messages(first, choice, learner, max_sentences=4, facts=facts)[1]["content"]
+    assert facts["best_move"] == "Q5" and "My move is also the engine's top move" in user
+
+
+def test_v3_1_evaluate_move_measures_against_the_most_searched_move(tmp_path):
+    game, analysis, choice, learner = sample_facts()
+    cands = (
+        Candidate("D17", 0.30, 0.60, 150, 3.0, ("D17",)),
+        Candidate("R14", 0.30, 0.62, 120, 4.5, ("R14",)),
+    )
+    top = EngineAnalysis(analysis.position, cands, {c.move: c.prior for c in cands}, 0.60)
+    explainer = ex.MetaExplainer(Client(), Engine(top), game, {"explainer": {}}, model="m", log_path=tmp_path / "a")
+    result = explainer.tool_evaluate_move(top.position, "R14")
+    assert result["best_move"] == "D17" and result["loss_pct"] == 0.0
+    assert explainer.tool_evaluate_move(top.position, "D17")["loss_pct"] == 0.0

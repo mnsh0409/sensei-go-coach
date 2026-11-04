@@ -29,8 +29,9 @@ Screen: the question "why not D4?", the tool calls, the variation drawn on the b
 <!-- results -->
 Voice: "We pre-registered three claims. Teaching instead of winning costs {{C1.elo}} Elo, with a {{C1.ci_pct}}
 percent interval up to {{C1.hi}}, over {{C1.n}} games against the raw engine. On recorded human games, the moves
-Sensei teaches one rank band are played {{C2.U_pct}} percentage points more often by the next stronger band. In
-simulation, the curriculum closes {{C3.gap_pct}} percent of the gap to an oracle that knows the weak topics."
+Sensei teaches one rank band are played {{C2.U_pct}} percentage points more often by the next stronger band, a
+real but small effect that is no larger than for any good move. In simulation, the curriculum closes
+{{C3.gap_pct}} percent of the gap to an oracle that knows the weak topics."
 <!-- /results -->
 Screen: the evaluation table from the README.
 

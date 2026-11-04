@@ -107,14 +107,15 @@ the current target topic. The game result comes from the sign of the main net's 
   forbids inventing moves or numbers, names Sensei's and the learner's colors ("I" and "you") and bans engine
   internals. The user message (prompt v2, `PROMPT_VERSION`) gives, in plain words: where each point is
   (`describe_point`), what the chosen move does to the stones next to it and its shape relations (`local_facts`),
-  the winning chances and the score in points, the comparison with the engine's best move, why the selector chose
+  the winning chances and the score in points, the comparison with the engine's top move, why the selector chose
   it (from the instructiveness and the position class, without the numbers) and the engine's expected answer. The
   v1 numeric facts stay in `Explanation.grounded_on` for the app and the logs.
 - `TOOLS`: OpenAI-format function schemas, each with `additionalProperties: false`:
   - `analyze_position(top_k: int)`: candidates of the current position (move, where, winrate, score lead), with
     the side the numbers are for.
   - `evaluate_move(move: str)`: the engine's evaluation of one legal move (where, winrate and score lead after it,
-    its loss against the best move, and what it does to the stones next to it).
+    its loss against the engine's top move, meaning its most-searched candidate, and what it does to the stones
+    next to it).
   - `show_variation(moves: list[str])`: replays the moves with `GoGame` from the current position, rejecting
     illegal ones, returns the engine's evaluation of the end position; the UI draws the sequence.
   - `get_learner_profile()`: rank estimate, top weakness topics, current target topic.
