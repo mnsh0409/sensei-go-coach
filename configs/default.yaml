@@ -36,7 +36,15 @@ topics:
   fit_visits: 30
   loss_bins: [0.05, 0.10, 0.20]   # small: 0.05 to 0.10, medium: 0.10 to 0.20, large: above 0.20
   model: results/topics_v1.json   # written by scripts/fit_topics.py (T7); the app runs untagged without it
-  names: []                       # one name per fitted topic, set by the human at the T7 gate (results/topics_v1.md)
+  names:                          # one name per fitted topic, in model order; approved by the human at the T7 gate (2026-11-04)
+    - "Middle game: edge move when the center mattered"
+    - "Endgame: center move when the edge mattered"
+    - "Middle game: missed an edge move"
+    - "Opening fights"
+    - "Middle game: center fights"
+    - "Missed a vital corner move"
+    - "Opening: contact fights on the side"
+    - "Endgame: contact fights on the edge"
   # Fallback if fitted topics are unreadable (T7 human gate).
   fallback_categories: [opening_direction, life_and_death, capturing_races, shape, endgame, tenuki_timing, invasion_reduction, connection_cut]
 

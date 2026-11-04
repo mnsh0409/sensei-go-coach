@@ -49,13 +49,17 @@ LANGUAGE_NAMES = {
     "ja": "Japanese",
 }
 FALLBACK_ASK_TEXT = "Sensei could not finish answering within its tool budget; please ask a narrower question."
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"
 """Version of the explanation and Ask Sensei prompts; recorded with every explanation set (results/explanations_*).
 
 v2 (2026-11-04, after the T5 grading of v1): the prompts name the learner's color and Sensei's ("I" and "you"),
 give no engine internals (prior, visits, instructiveness, admissible set), describe every point in plain Go words
 (`describe_point`), state what a move does to the stones next to it (`local_facts`), and talk in points when one
 side is far ahead. Tool results drop prior and visits and label every number with its side.
+v3 (2026-11-04, after a review of the v2 outputs): "my new stone" instead of the ambiguous "the stone", the nearest
+stones for quiet moves, no winning percentages at all once one side is far ahead (v2's instruction to talk in points
+leaked into the text), "about even" for a score near zero, the points given up against the engine's top move as a
+required part of the reason, and every move in a tool result labelled with who plays it.
 """
 DECIDED = 0.95
 """Above this winning chance (or below 1 - DECIDED) the prompts ask for points instead of percentages."""
@@ -232,7 +236,7 @@ def describe_point(move: Any, size: int = 19) -> str | None:
     if v_line <= near:
         half = "" if horiz == "middle" else f", {horiz} half"
         return f"{'top' if vert == 'upper' else 'bottom'} side, {_ordinal(v_line)} line{half}"
-    toward = "-".join(x for x in (vert, horiz) if x != "middle")
+    toward = "-".join(x for x in ({"upper": "top", "lower": "bottom"}.get(vert, vert), horiz) if x != "middle")
     return "center" if not toward else f"center, toward the {toward}"
 
 
@@ -260,6 +264,8 @@ _SHAPES = (  # (offsets, relation, which side's stones, the points between that 
     (((3, 0), (-3, 0), (0, 3), (0, -3)), "a two-space jump from", "own", 2),
 )
 MAX_SHAPES = 3
+NEAREST_RADIUS = 4
+"""For a move that touches nothing: the nearest stone of each color within this many points (Chebyshev distance)."""
 
 
 def _shape_relations(
@@ -322,7 +328,21 @@ def local_facts(game: Any, pos: Position, move: Any) -> dict[str, Any] | None:
         if len(libs) == 1:
             atari.append(entry["stone"])
     own_stones, own_libs = _chain(a, rc, size) if rc in a else (set(), set())
+    nearest: dict[str, dict[str, Any] | None] = {"own": None, "opponent": None}
+    for point, color in b.items():
+        if point is None:
+            continue
+        d = max(abs(point[0] - rc[0]), abs(point[1] - rc[1]))
+        key = "own" if color == me else "opponent"
+        if d <= NEAREST_RADIUS and (
+            nearest[key] is None or (d, point) < (nearest[key]["distance"], nearest[key]["rc"])
+        ):
+            nearest[key] = {"stone": rc_to_gtp(point, size), "distance": d, "rc": point}
+    for entry in nearest.values():
+        if entry is not None:
+            entry.pop("rc")
     return {
+        "nearest": nearest,
         "shape": _shape_relations(b, rc, me, other, size),
         "touches_opponent": any(b.get(q) == other for q in around),
         "touches_own": any(b.get(q) == me for q in around),
@@ -361,12 +381,25 @@ def local_text(local: Mapping[str, Any] | None, mine: str, theirs: str) -> str:
     for s in local.get("shape", ()):
         whose = mine if s["side"] == "own" else theirs
         parts.append(f"It is {s['relation']} {whose} stone at {s['stone']}.")
+    quiet = not (local.get("touches_opponent") or local.get("touches_own") or local.get("captured"))
+    if quiet:
+        named = {s["stone"] for s in local.get("shape", ())}
+        near = local.get("nearest") or {}
+        bits = []
+        for side, whose in (("opponent", theirs), ("own", mine)):
+            n = near.get(side)
+            if n and n["stone"] not in named:
+                bits.append(f"{whose} stone at {n['stone']}, {n['distance']} points away")
+        if bits:
+            parts.append("The nearest other stones are " + " and ".join(bits) + ".")
+        elif not near.get("own") and not near.get("opponent"):
+            parts.append(f"No stone is within {NEAREST_RADIUS} points of it: it is in an open area.")
     own = local.get("own_group") or {}
     if own.get("stones"):
         if own["stones"] > 1:
             parts.append(f"After it, {mine} group there has {own['stones']} stones and {own['liberties']} liberties.")
         else:
-            parts.append(f"After it, the stone has {own['liberties']} liberties.")
+            parts.append(f"After it, {mine} new stone has {own['liberties']} liberties.")
     return " ".join(parts)
 
 
@@ -485,6 +518,7 @@ def explanation_facts(
         points.append(last[1])
     points += [g["stone"] for g in (local or {}).get("adjacent_opponent", ())]
     points += [s["stone"] for s in (local or {}).get("shape", ())]
+    points += [n["stone"] for n in ((local or {}).get("nearest") or {}).values() if n]
     where = {m: w for m in dict.fromkeys(points) if (w := describe_point(m, size))}
     return {
         "move": choice.move,
@@ -531,6 +565,7 @@ def allowed_coords_from_facts(facts: Mapping[str, Any]) -> set[str]:
     allowed |= {str(g["stone"]).upper() for g in local.get("adjacent_opponent", ())}
     allowed |= {str(s).upper() for s in local.get("atari", ())}
     allowed |= {str(s["stone"]).upper() for s in local.get("shape", ())}
+    allowed |= {str(n["stone"]).upper() for n in (local.get("nearest") or {}).values() if n}
     allowed.discard(PASS.upper())
     return allowed
 
@@ -562,6 +597,8 @@ def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
     me, you = _color_name(facts["sensei_color"]), _color_name(facts["learner_color"])
     where = facts.get("where") or {}
     rank = facts["learner"]["label"]
+    root = float(facts["root_winrate_pct"])
+    decided = root >= 100 * DECIDED or root <= 100 * (1 - DECIDED)
     lines = [f"Move {facts['move_number']}."]
     last = facts.get("last_move")
     if last:
@@ -570,46 +607,47 @@ def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
     lines.append(f"I ({me}) now play {_at(facts['move'], where)}.")
     text = local_text(facts.get("local"), "my", "your")
     if text:
-        lines.append(f"What my move does to the stones next to it: {text}")
-    root = float(facts["root_winrate_pct"])
-    lines.append(f"Winning chances before my move: {me} (me) about {root:.0f}%, {you} (you) about {100 - root:.0f}%.")
+        lines.append(f"What my move does to the stones around it: {text}")
+    if not decided:
+        lines.append(
+            f"Winning chances before my move: {me} (me) about {root:.0f}%, {you} (you) about {100 - root:.0f}%."
+        )
     lead = facts.get("my_score_lead")
     if lead is not None:
-        leader = f"{me} (me)" if lead >= 0 else f"{you} (you)"
-        lines.append(f"Score after my move, by the engine's count: {leader} ahead by about {abs(lead):.1f} points.")
+        if abs(float(lead)) < 0.5:
+            lines.append("Score after my move, by the engine's count: about even.")
+        else:
+            leader = f"{me} (me)" if lead > 0 else f"{you} (you)"
+            lines.append(f"Score after my move, by the engine's count: {leader} ahead by about {abs(lead):.1f} points.")
     best = facts.get("best_move")
+    gap = facts.get("points_vs_best")
     if best and best != facts["move"]:
-        gap = facts.get("points_vs_best")
-        chances = None
-        if facts.get("best_winrate_pct") is not None and facts.get("my_winrate_pct") is not None:
-            chances = float(facts["best_winrate_pct"]) - float(facts["my_winrate_pct"])
         detail = []
         if gap is not None:
             detail.append(f"about {gap:.1f} points better for me" if gap >= 0.5 else "about the same in points")
-        if chances is not None:
+        if not decided and facts.get("best_winrate_pct") is not None and facts.get("my_winrate_pct") is not None:
             best_wr, my_wr = float(facts["best_winrate_pct"]), float(facts["my_winrate_pct"])
             detail.append(
                 f"winning chances {best_wr:.1f}% against {my_wr:.1f}% for my move "
                 f"(a loss of {float(facts['value_loss_pct']):.1f}%)"
             )
         lines.append(f"The engine's top move was {_at(best, where)}: {'; '.join(detail) or 'close to mine'}.")
-        if gap is not None and gap >= 2.0:
-            lines.append("Say plainly that the engine's top move gains more points than mine.")
     else:
         mine_wr = facts.get("my_winrate_pct")
-        lines.append(
-            "My move is also the engine's top move"
-            + ("." if mine_wr is None else f" (winning chances {float(mine_wr):.1f}% for me after it).")
-        )
+        tail = "." if mine_wr is None or decided else f" (winning chances {float(mine_wr):.1f}% for me after it)."
+        lines.append("My move is also the engine's top move" + tail)
     if facts.get("position_class") == "only_move" or int(facts.get("n_admissible") or 0) <= 1:
-        lines.append("Why I chose it: every other move gives up ground here.")
+        why = "every other move gives up ground here"
     elif float(facts.get("instructiveness") or 0.0) >= 0.3:
-        lines.append(
-            f"Why I chose it: players around {rank} rarely find this move, and among the moves that keep my winning "
-            "chances it is the one most worth learning."
+        why = (
+            f"players around {rank} rarely find this move, and among the moves that keep my winning chances it is the "
+            "one most worth learning"
         )
     else:
-        lines.append(f"Why I chose it: it keeps my winning chances, and players around {rank} often find it too.")
+        why = f"it keeps my winning chances, and players around {rank} often find it too"
+    if best and best != facts["move"] and gap is not None and gap >= 2.0:
+        why += f"; but {best} gains about {gap:.1f} points more than my move, and your text must say so plainly"
+    lines.append(f"Why I chose it: {why}.")
     cont = facts.get("continuation") or []
     if cont:
         line = f"The engine expects you to answer at {_at(cont[0], where)}"
@@ -617,11 +655,10 @@ def _user_prompt(facts: Mapping[str, Any], max_sentences: int) -> str:
             line += f", and then I would play {_at(cont[1], where)}"
         lines.append(line + ".")
     lines.append(f"Position type: {_CLASS_WORDS.get(str(facts['position_class']), str(facts['position_class']))}.")
-    if root >= 100 * DECIDED or root <= 100 * (1 - DECIDED):
-        lines.append("One side is far ahead: talk about points, not winning percentages.")
     lines.append(
         f"Write at most {max_sentences} sentences for a {rank} player: what my move does on the board, why it is "
-        "worth learning, and what to watch for next if an expected answer is given. Use only these facts."
+        "worth learning (including any points it gives up), and what to watch for next if an expected answer is "
+        "given. Use only these facts."
     )
     return "\n".join(lines)
 
@@ -682,6 +719,7 @@ def mistake_facts(
     for local in (local_played, local_best):
         points += [g["stone"] for g in (local or {}).get("adjacent_opponent", ())]
         points += [s["stone"] for s in (local or {}).get("shape", ())]
+        points += [n["stone"] for n in ((local or {}).get("nearest") or {}).values() if n]
     where = {m: w for m in dict.fromkeys(points) if (w := describe_point(m, size))}
     return {
         "kind": "mistake",
@@ -802,7 +840,9 @@ def _ask_system_prompt(
         "evaluate_move (one move: winning chance, points, and what it does to the stones next to it), show_variation "
         "(plays a sequence on the learner's board and evaluates the end position) and get_learner_profile (rank "
         "estimate and weak topics). Every tool result says which side its numbers are for ('for') and where each "
-        "point is ('where'); use those location words. Answer the question that was asked, first. When asked what "
+        "point is ('where'); use those location words. They also say who plays each move ('by'): a move by Sensei's "
+        "color is always my move and a move by the learner's color always yours, also inside a variation. Answer the "
+        "question that was asked, first. When asked what "
         "happens after a move, call show_variation with that move and describe the line it returns. Explain with "
         "what the tools return (locations, captures, ataris, liberties, points), not with generic advice such as "
         "'stay calm', 'hang on' or 'keep it simple'. Never mention engine internals (prior, policy, visits, "
@@ -1006,6 +1046,7 @@ class MetaExplainer:
         for local in (facts.get("local_played"), facts.get("local_best")):
             allowed |= {str(g["stone"]).upper() for g in (local or {}).get("adjacent_opponent", ())}
             allowed |= {str(s["stone"]).upper() for s in (local or {}).get("shape", ())}
+            allowed |= {str(n["stone"]).upper() for n in ((local or {}).get("nearest") or {}).values() if n}
         allowed.discard(PASS.upper())
         totals = [0, 0]
         guard: dict[str, Any] = {"regenerated": False, "dropped": [], "ungrounded": []}
@@ -1196,6 +1237,7 @@ class MetaExplainer:
         on_board = local_text(local_facts(self.game, pos, played), f"{mover}'s", f"{other}'s")
         return {
             "move": played,
+            "by": mover,
             "where": describe_point(played, size),
             "perspective": pos.to_move,
             "for": mover,

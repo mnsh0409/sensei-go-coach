@@ -62,7 +62,11 @@ def sample_facts():
 def test_explanation_prompt_v2_voice_locations_and_no_jargon():
     game, analysis, choice, learner = sample_facts()
     facts = ex.explanation_facts(analysis, choice, learner, game=game)
-    assert facts["sensei_color"] == "W" and facts["learner_color"] == "B" and facts["prompt_version"] == "v2"
+    assert (
+        facts["sensei_color"] == "W"
+        and facts["learner_color"] == "B"
+        and facts["prompt_version"] == ex.PROMPT_VERSION == "v3"
+    )
     assert facts["best_move"] == "R14" and facts["points_vs_best"] == 2.5 and facts["continuation"] == ["R14"]
     assert facts["where"]["Q5"] == "lower-right corner (4-5 point)"
     msgs = ex.build_explanation_messages(analysis, choice, learner, max_sentences=4, facts=facts)
@@ -71,7 +75,8 @@ def test_explanation_prompt_v2_voice_locations_and_no_jargon():
     assert "I (White) now play Q5 (lower-right corner (4-5 point))" in user
     assert "Last move: Black (you) played R4" in user
     assert "R14 (right side, 3rd line, upper half): about 2.5 points better for me" in user
-    assert "Say plainly that the engine's top move gains more points" in user
+    assert "but R14 gains about 2.5 points more than my move, and your text must say so plainly" in user
+    assert "Winning chances before my move: White (me) about 60%" in user  # a close game keeps the percentages
     assert "The engine expects you to answer at R14" in user and "players around 10k rarely find" in user
     assert not any(word in user.lower() for word in JARGON), user
     assert ex.allowed_coords_from_facts(facts) >= {"Q5", "R14", "R4", "D17"}
@@ -131,3 +136,35 @@ def test_ask_prompt_and_tools_name_the_sides(tmp_path):
     explainer.set_learner_color(None)
     explainer.ask("And now?", position=pos)
     assert "Refer to the players as Black and White" in client.calls[-1]["messages"][0]["content"]
+
+
+def test_v3_decided_games_drop_percentages_and_even_scores_say_even():
+    game, analysis, choice, learner = sample_facts()
+    won = EngineAnalysis(analysis.position, analysis.candidates, analysis.policy, 0.99)
+    facts = ex.explanation_facts(won, choice, learner, game=game)
+    user = ex.build_explanation_messages(won, choice, learner, max_sentences=4, facts=facts)[1]["content"]
+    assert "Winning chances" not in user and "%" not in user and "talk about points" not in user
+    assert "White (me) ahead by about 2.0 points" in user
+    even = [Candidate(c.move, c.prior, c.value, c.visits, 0.2 if c.move == "Q5" else c.score_lead, c.pv)
+            for c in analysis.candidates]  # fmt: skip
+    close = EngineAnalysis(analysis.position, tuple(even), analysis.policy, 0.60)
+    facts = ex.explanation_facts(close, choice, learner, game=game)
+    user = ex.build_explanation_messages(close, choice, learner, max_sentences=4, facts=facts)[1]["content"]
+    assert "Score after my move, by the engine's count: about even." in user
+
+
+def test_v3_quiet_moves_name_the_nearest_stones_and_my_new_stone():
+    game, pos = play(["D4", "Q16"])
+    local = ex.local_facts(game, pos, "K10")
+    assert local["nearest"] == {"own": None, "opponent": None}
+    assert "No stone is within 4 points of it: it is in an open area." in ex.local_text(local, "my", "your")
+    local = ex.local_facts(game, pos, "E8")  # Black's own D4 is 4 points away, in no named shape
+    text = ex.local_text(local, "my", "your")
+    assert local["nearest"]["own"] == {"stone": "D4", "distance": 4} and "my stone at D4, 4 points away" in text
+    assert "After it, my new stone has 4 liberties." in text
+    jump = ex.local_text(ex.local_facts(game, pos, "D7"), "my", "your")
+    assert "a two-space jump from my stone at D4" in jump and "points away" not in jump  # named once, not twice
+    assert (
+        ex.describe_point("K6") == "center, toward the bottom"
+        and ex.describe_point("F14") == "center, toward the top-left"
+    )
