@@ -204,6 +204,13 @@ The Meta Model API is described as a swappable explanation backend; the NVIDIA s
 concurrent evaluation on one GPU, batched multi-profile HumanSL rank estimation) carries the poster.
 Accept: `scripts/check_numbers.py` passes on the filled file; no `{{` left in it; PDF exported from PowerPoint at
 300 dpi; submitted on the GTC portal with whatever the form requires.
+Status (2026-11-07, human said go): built `eval/poster_figures.py`, `poster/render_poster.py`, the `hw` token source
+in `eval/tokens.py`, the poster check in `scripts/check_numbers.py`, `scripts/slurm_bench.sh` and
+`tests/test_poster.py`; the skeleton text was corrected against the results (rank estimation is 11 cached
+queries, not one batched pass; the serial-time estimate and the throughput-formula games per hour were dropped
+for the measured C1 games per hour and the 1-to-8 concurrency gain; C2 is reported against its random-move
+baseline; C3 added). Waiting on: clean `results/latency_*.json` for the 3090, 4090 and RTX PRO 6000 on CUDA and
+TensorRT, and `affiliation_1` in `poster/poster_meta.yaml`.
 
 ## T12 C2b: pre-registered lesson relevance on fresh games (after submission, for the poster; agreed 2026-10-31)
 

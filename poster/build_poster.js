@@ -32,14 +32,14 @@ const C = pres.SchemeColor;
 const M = 1.0;
 const COLW = 13.13, GUT = 0.8;
 const X1 = M, X2 = M + COLW + GUT, X3 = M + 2 * (COLW + GUT);
-const BODY = 28, CAP = 22, HEAD = 44, REF = 18, TOK = BODY;
+const BODY = 28, CAP = 22, HEAD = 44, REF = 18;
 
 const slide = pres.addSlide();
 slide.background = { color: THEME.colors.lt1 };
 
 // Helpers -----------------------------------------------------------------------------------
 function tok(name) {
-  return { text: `{{${name}}}`, options: { color: C.accent2, bold: true, fontSize: TOK } };
+  return { text: `{{${name}}}`, options: { color: C.accent2, bold: true } };
 }
 function t(text, opts = {}) {
   return { text, options: Object.assign({ fontSize: BODY }, opts) };
@@ -93,12 +93,12 @@ function caption(text, x, y, w, name, h = 0.8) {
 
 // Title band --------------------------------------------------------------------------------
 slide.addText("Teaching Moves Under a Strength Bound: A GPU-Accelerated Go Coaching Agent and Its Pre-Registered Evaluation", {
-  x: M, y: 1.0, w: 36.6, h: 1.7, fontSize: 64, bold: true, color: C.text2, fontFace: THEME.headFontFace,
+  x: M, y: 1.0, w: 36.6, h: 1.7, fontSize: 50, bold: true, color: C.text2, fontFace: THEME.headFontFace,
   margin: 0, valign: "middle", isTextBox: true, objectName: "Poster title",
 });
 slide.addText(
   [
-    tok("author_1"), t(" (Taipei Medical University)   "), tok("author_2"), t(" ("), tok("affiliation_2"), t(")"),
+    tok("author_1"), t(" ("), tok("affiliation_1"), t(")   "), tok("author_2"), t(" ("), tok("affiliation_2"), t(")"),
     t("      Code and results: "), tok("repo_url"),
   ],
   { x: M, y: 2.75, w: 36.6, h: 0.75, fontSize: 30, color: C.text1, margin: 0, valign: "middle", isTextBox: true, objectName: "Authors" }
@@ -118,7 +118,7 @@ bullets([
   "Strong Go engines return the best move. A learner needs the most instructive move, one they would not have found, from a coach that still plays well.",
   [t("Goal: select moves for teaching value under an explicit winrate-loss bound "), t("ε", { italic: true }),
    t(", explain them from engine evidence only, and measure the strength cost and the lesson relevance with a pre-registered protocol.")],
-  [t("Compute: one evaluation needs about "), tok("C1.queries"), t(" searches of 200 visits (400 games); every learner move needs 11 rank-profile queries for rank estimation; a coaching turn must stay under a second.")],
+  [t("Compute: one evaluation needs about "), tok("C1.queries"), t(" searches of 200 visits (400 games); every learner move needs 11 rank-profile queries for rank estimation; the engine part of a coaching turn should stay under a second.")],
 ], X1, y + 1.0, COLW, 4.4, "Problem bullets");
 
 y = 9.6;
@@ -142,17 +142,19 @@ y = 4.0;
 header(3, "Application of NVIDIA Technology", X2, y, COLW);
 bullets([
   [t("KataGo analysis engine on NVIDIA GPUs with the CUDA and TensorRT backends (b18c384nbt networks); one engine process serves "),
-   tok("hw.conc"), t(" concurrent games through asynchronous JSON queries.")],
-  [t("Rank estimation batches the 11 HumanSL profile queries of each learner move into one GPU pass: "), tok("hw.hp_ms"), t(" ms per profile.")],
+   tok("C1.conc"), t(" concurrent games through asynchronous JSON queries; going from 1 to 8 concurrent queries raised engine throughput "),
+   tok("hw.conc_gain"), t("× on the same GPU.")],
+  [t("Rank estimation scores each learner move under 11 HumanSL rank profiles, one cached human-policy query each ("), tok("hw.hp_ms"),
+   t(" ms per query on the "), tok("C1.gpu"), t(").")],
   [t("The 400 pre-registered games at 200 visits per move finished in "), tok("C1.hours"), t(" h on one "), tok("C1.gpu"),
-   t(" with "), tok("C1.conc"), t(" games in flight, against an estimated "), tok("hw.serial_h"), t(" h serial.")],
-], X2, y + 1.0, COLW, 5.0, "NVIDIA bullets");
+   t(" with "), tok("C1.conc"), t(" games in flight: "), tok("C1.gph"), t(" games per hour.")],
+], X2, y + 1.0, COLW, 5.0, "NVIDIA bullets", 26);
 
 const TH = { bold: true, color: THEME.colors.lt1, fill: { color: THEME.colors.accent1 }, fontSize: 16, align: "center", valign: "middle" };
 const TD = { fontSize: 16, align: "center", valign: "middle", color: THEME.colors.dk1 };
 const TK = { fontSize: 16, align: "center", valign: "middle", color: THEME.colors.accent2, bold: true };
 const rows = [
-  ["GPU", "Backend", "Driver / CUDA", "Visits / s (8 concurrent)", "analyze p50 (ms)"].map((h) => ({ text: h, options: Object.assign({}, TH) })),
+  ["GPU", "Backend", "Driver / CUDA", "Visits / s (8 concurrent)", "analyze p50, 1 query (ms)"].map((h) => ({ text: h, options: Object.assign({}, TH) })),
 ];
 for (const [gpu, g] of [["RTX 3090", "3090"], ["RTX 4090", "4090"], ["RTX PRO 6000", "p6000"]]) {
   for (const [be, b] of [["CUDA", "cuda"], ["TensorRT", "trt"]]) {
@@ -168,33 +170,34 @@ slide.addTable(rows, {
   x: X2, y: 10.2, w: COLW, colW: [2.2, 1.8, 2.9, 3.1, 3.13], rowH: 0.46, fontFace: THEME.bodyFontFace,
   border: { type: "solid", color: THEME.colors.accent5, pt: 1 }, objectName: "Hardware table",
 });
-caption("Table 1. Engine throughput by GPU and backend from scripts/bench_engine.py (50 fixed positions, 200 visits); p95 latencies are in Figure 3.", X2, 13.55, COLW, "Table 1 caption", 0.75);
+caption("Table 1. Engine throughput by GPU and backend from scripts/bench_engine.py: 50 fixed positions, 200 visits, the same nets and analysis config on every GPU.", X2, 13.55, COLW, "Table 1 caption", 0.75);
 
 figure(2, "Engine throughput (visits per second) by GPU and backend, at 1, 4 and 8 concurrent queries", "results/latency_*.json via eval/poster_figures.py", X2, 14.4, COLW, 4.0);
-caption("Figure 2. Concurrency on one GPU is what makes the pre-registered evaluation fit in a night.", X2, 18.45, COLW, "Figure 2 caption", 0.6);
+caption("Figure 2. Visits per second at 1, 4 and 8 concurrent queries, by GPU and backend.", X2, 18.45, COLW, "Figure 2 caption", 0.6);
 figure(3, "Coaching-turn latency breakdown: engine search, 11-profile human policy, explanation", "logs/turns.jsonl via eval/poster_figures.py", X2, 19.1, COLW, 3.1);
-caption("Figure 3. Median and p95 per component of a live coaching turn.", X2, 22.25, COLW, "Figure 3 caption", 0.6);
+caption("Figure 3. Median and p95 per component of a live coaching turn over the two recorded games; the explanation is a remote language-model call.", X2, 22.25, COLW, "Figure 3 caption", 0.6);
 
 // Column 3: methods, results, takeaways, references ----------------------------------------
 y = 4.0;
 header(4, "Benchmarking Methods", X3, y, COLW);
 bullets([
-  "Pre-registered before any run (configs/prereg.yaml with a revision log); every result file records the commit, network SHA-256, analysis config, GPU, driver, CUDA version, backend and concurrency.",
+  "Pre-registered before any run (configs/prereg.yaml); every result file records the commit, net SHA-256, analysis config, GPU, driver, CUDA, backend and concurrency.",
   [t("C1, strength cost: Sensei against the raw engine at equal visits, 200 openings × 2 colors, paired bootstrap over openings; "), t("ε", { italic: true }),
    t(" fixed by a pilot rule (largest pilot "), t("ε", { italic: true }), t(" scoring ≥ 0.35)." )],
-  [t("C2, lesson relevance: "), tok("data.n_games"), t(" public games played after the HumanSL release (≥ 2024-08-01), four rank bands; uplift "),
+  [t("C2, lesson relevance: "), tok("C2.details.n_games"), t(" public games from after the HumanSL release, four rank bands; uplift "),
    t("U", { italic: true }), t("k", { subscript: true, italic: true }), t(" = P"), t("k+1", { subscript: true }), t("(played s"), t("k", { subscript: true }),
-   t(") − P"), t("k", { subscript: true }), t("(played s"), t("k", { subscript: true }), t("); bootstrap clustered by game.")],
-  "Throughput: 50 fixed positions at 200 visits, 1, 4 and 8 concurrent queries, per GPU and backend.",
-], X3, y + 1.0, COLW, 6.0, "Methods bullets");
+   t(") − P"), t("k", { subscript: true }), t("(played s"), t("k", { subscript: true }), t("); game-clustered bootstrap; best move and random admissible move as descriptive baselines.")],
+  [t("C3, curriculum in simulation: "), tok("C3.learners"), t(" simulated learners over "), tok("C3.sessions"),
+   t(" sessions; Thompson sampling against round robin, greedy, uniform and an oracle.")],
+], X3, y + 1.0, COLW, 5.5, "Methods bullets", 23);
 
 y = 10.6;
 header(5, "Results and Outcomes", X3, y, COLW);
 const statW = (COLW - 0.6) / 3;
 const stats = [
-  ["C1.elo", "Elo strength cost at ε = {{C1.eps}}", "95% CI {{C1.lo}} to {{C1.hi}}"],
-  ["C2.U", "cross-band uplift U", "95% CI {{C2.lo}} to {{C2.hi}}"],
-  ["hw.gph", "evaluation games per hour", "on {{hw.best.gpu}}, {{hw.best.backend}}"],
+  ["{{C1.elo}}", "Elo strength cost at ε = {{C1.eps}}", "95% CI {{C1.lo}} to {{C1.hi}}"],
+  ["{{C2.U_pct:.2f}}", "uplift U, percentage points", "95% CI {{C2.lo_pct:.2f}} to {{C2.hi_pct:.2f}}"],
+  ["{{C3.gap_pct}}%", "of the oracle gap closed (simulation)", "95% CI {{C3.details.gap_closure.ci.0:.0%}} to {{C3.details.gap_closure.ci.1:.0%}}"],
 ];
 stats.forEach((s, i) => {
   const x = X3 + i * (statW + 0.3);
@@ -202,7 +205,7 @@ stats.forEach((s, i) => {
     x, y: y + 1.0, w: statW, h: 2.2, rectRadius: 0.15, fill: { color: C.background2 }, line: { color: C.background2, width: 0 },
     objectName: `Stat card ${i + 1}`,
   });
-  slide.addText(`{{${s[0]}}}`, {
+  slide.addText(s[0], {
     x, y: y + 1.05, w: statW, h: 1.0, align: "center", valign: "middle", fontSize: 48, bold: true, color: C.accent2, margin: 0,
     isTextBox: true, objectName: `Stat value ${i + 1}`,
   });
@@ -213,13 +216,14 @@ stats.forEach((s, i) => {
 
 const halfW = (COLW - 0.4) / 2;
 figure(4, "Strength cost by ε (pilot points) with the confirmatory 95% CI", "results/pilot_C1_*.json, results/C1_*.json", X3, 14.1, halfW, 3.8);
-figure(5, "Uplift Uk per rank band with 95% CIs; D_best and D_rand as secondary bars", "results/C2_*.json", X3 + halfW + 0.4, 14.1, halfW, 3.8);
-caption("Figure 4 (left). Larger ε buys instructiveness at a measured Elo cost. Figure 5 (right). Stronger players play the moves Sensei teaches to weaker bands more often than those bands do.", X3, 17.95, COLW, "Figures 4 and 5 caption", 0.95);
+figure(5, "Rise in play rate per band step for the lesson, the best move and a random admissible move", "results/relevance_baselines.json", X3 + halfW + 0.4, 14.1, halfW, 3.8);
+caption("Figure 4 (left). Strength cost by ε in the pilot and at ε* in the confirmatory run, with 95% CIs. Figure 5 (right). Rise in play rate from one band to the next, with 95% CIs, for Sensei's lesson and two baselines.", X3, 17.95, COLW, "Figures 4 and 5 caption", 0.95);
 
 bullets([
-  [t("A bounded teaching bias costs "), tok("C1.elo"), t(" Elo, and the moves it selects are "), tok("C2.U_pct"), t(" points more likely to be played by the next band up.")],
-  [t("Concurrent games on one GPU cut the evaluation from an estimated "), tok("hw.serial_h"), t(" h to "), tok("C1.hours"), t(" h; TensorRT gave "), tok("hw.trt_speedup"), t("× over CUDA.")],
-], X3, 19.0, COLW, 2.3, "Takeaways", 24);
+  [t("Teaching cost no measurable strength ("), tok("C1.elo"), t(" Elo; pre-registered limit "), tok("C1.threshold"), t(").")],
+  [t("Lessons rise across bands "), tok("C2base.lesson_vs_rand"), t(" a random admissible move: relevance beyond move quality is not shown.")],
+  [t("All 400 games ran on one GPU in "), tok("C1.hours"), t(" h; TensorRT reached "), tok("hw.trt_gain"), t(" the CUDA throughput.")],
+], X3, 19.0, COLW, 2.6, "Takeaways", 22);
 
 slide.addText(
   [
@@ -230,7 +234,7 @@ slide.addText(
       "Policies of multiple skill levels for better strength estimation in games, arXiv 2505.00279, 2025. " +
       "D. Blei, A. Ng, M. Jordan, Latent Dirichlet allocation, JMLR 2003. D. Russo et al., A tutorial on Thompson sampling, 2018." },
   ],
-  { x: X3, y: 21.6, w: COLW, h: 1.4, fontSize: REF, color: C.accent3, margin: 0, valign: "top", isTextBox: true, objectName: "References" }
+  { x: X3, y: 21.75, w: COLW, h: 1.25, fontSize: REF, color: C.accent3, margin: 0, valign: "top", isTextBox: true, objectName: "References" }
 );
 
 slide.addNotes(

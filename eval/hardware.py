@@ -21,20 +21,24 @@ def _nvidia_smi(args: list[str]) -> str | None:
     if exe is None:
         return None
     try:
-        out = subprocess.run([exe, *args], capture_output=True, text=True, timeout=10, check=False)
-    except (OSError, subprocess.SubprocessError):
+        out = subprocess.run(
+            [exe, *args], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10, check=False
+        )
+    except (OSError, ValueError, subprocess.SubprocessError):
         return None
     return out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else None
+
+
+CUDA_VERSION_RE = re.compile(r"CUDA(?:\s+(?:Driver|UMD|Runtime))?\s+Version\s*:\s*([0-9]+(?:\.[0-9]+)*)")
+"""The CUDA version in nvidia-smi's header ("CUDA Version: 12.8"; some drivers print "CUDA Driver Version")."""
 
 
 def _cuda_version() -> str | None:
     text = _nvidia_smi([])
     if not text:
         return None
-    for line in text.splitlines():
-        if "CUDA Version" in line:
-            return line.split("CUDA Version:")[-1].split()[0].strip()
-    return None
+    m = CUDA_VERSION_RE.search(text)
+    return m.group(1) if m else None
 
 
 def _ram_gb() -> float | None:

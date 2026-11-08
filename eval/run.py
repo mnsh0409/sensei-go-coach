@@ -62,11 +62,13 @@ def _git(root: Path, *args: str) -> str | None:
     return out.stdout.strip() if out.returncode == 0 else None
 
 
-def git_info(root: Path) -> tuple[str, bool]:
+def git_info(root: Path, ignore_untracked: tuple[str, ...] = ()) -> tuple[str, bool]:
     """(short commit, dirty). ("no-git", True) when `root` itself is not a git checkout or git is missing.
 
     A checkout of a parent directory does not count: a copy of the project inside some other repository must not
     borrow that repository's commit. Without a commit the run counts as dirty, so it never feeds the README.
+    `ignore_untracked` lists path prefixes whose UNTRACKED files do not make the tree dirty (the engine benchmark
+    passes "results/latency_" so its second backend run is not marked dirty by the first run's output file).
     """
     toplevel = _git(root, "rev-parse", "--show-toplevel")
     if not toplevel or Path(toplevel).resolve() != root.resolve():
@@ -74,8 +76,15 @@ def git_info(root: Path) -> tuple[str, bool]:
     head = _git(root, "rev-parse", "--short", "HEAD")
     if not head:
         return "no-git", True
-    status = _git(root, "status", "--porcelain")
-    return head, status is None or bool(status)
+    status = _git(root, "status", "--porcelain", "--untracked-files=all")
+    if status is None:
+        return head, True
+    lines = [
+        line
+        for line in status.splitlines()
+        if line.strip() and not (line.startswith("?? ") and line[3:].strip('"').startswith(ignore_untracked))
+    ]
+    return head, bool(lines)
 
 
 def load_config(path: Path) -> dict[str, Any]:

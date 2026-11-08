@@ -1,0 +1,7 @@
+# Names on the GTC poster (poster/render_poster.py). Filled in by the human; nothing here is a result.
+# Leave author_2 and affiliation_2 empty for a single-author poster.
+author_1: "Siu Hin (Martin) Ng"
+affiliation_1: ""
+author_2: ""
+affiliation_2: ""
+repo_url: "https://github.com/mnsh0409/sensei-go-coach"

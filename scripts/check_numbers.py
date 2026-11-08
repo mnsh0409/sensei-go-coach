@@ -7,13 +7,19 @@ For each template in scripts/render_readme.py's PAIRS that exists:
 2. every token resolves from a clean result file (git_dirty false, a real commit);
 3. the output file (README.md, video_script.md) equals a fresh rendering, so nobody edited a number by hand and
    no newer clean result is missing from it.
-Numbers outside the results blocks are not checked. The poster (T10b) is added here when its renderer exists.
+Numbers outside the results blocks are not checked.
+
+The GTC poster (T10b): when poster/sensei_gtc2027_poster_filled.pptx exists, it must hold no `{{` and its text must
+equal a fresh poster/render_poster.py rendering from clean results (needs python-pptx, the poster extra; without
+it the poster check is skipped with a warning).
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import sys
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -54,6 +60,36 @@ def check(root: Path, results: Path) -> list[str]:
             problems.append(f"{output_name} differs from a fresh rendering of {template_name}: rerun render_readme.py")
     if not checked:
         problems.append("no template found: create README.tmpl.md (TASKS.md T10)")
+    problems += check_poster(root, results)
+    return problems
+
+
+def check_poster(root: Path, results: Path) -> list[str]:
+    """Problems with the filled poster (none when it does not exist yet)."""
+    filled = root / "poster" / "sensei_gtc2027_poster_filled.pptx"
+    if not filled.is_file():
+        return []
+    if importlib.util.find_spec("pptx") is None:
+        print("WARN poster check skipped: python-pptx is not installed (pip install -e \".[poster]\")")
+        return []
+    if str(root / "poster") not in sys.path:
+        sys.path.insert(0, str(root / "poster"))
+    import render_poster
+
+    texts = render_poster.poster_texts(filled)
+    problems = [f"{filled.name}: unrendered token in {name}: {text[:60]!r}" for name, text in texts if "{{" in text]
+    with tempfile.TemporaryDirectory() as tmp:
+        fresh, render_problems, _ = render_poster.render(
+            template=root / "poster" / "sensei_gtc2027_poster.pptx",
+            out=Path(tmp) / "fresh.pptx",
+            results=results,
+            meta=render_poster.load_meta(root / "poster" / "poster_meta.yaml"),
+            figures=root / "poster" / "figures",
+        )
+        if render_problems:
+            return problems + [f"poster: {p}" for p in render_problems]
+        if render_poster.poster_texts(fresh) != texts:
+            problems.append(f"{filled.name} differs from a fresh rendering: rerun poster/render_poster.py")
     return problems
 
 

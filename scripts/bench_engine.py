@@ -147,7 +147,7 @@ def run(args: argparse.Namespace) -> Path:
         levels = {str(c): bench_level(engine, positions, args.visits, c) for c in args.concurrency}
     finally:
         engine.close()
-    commit, dirty = git_info(ROOT)
+    commit, dirty = git_info(ROOT, ignore_untracked=("results/latency_",))
     result = {
         "kind": "engine_benchmark",
         "git_commit": commit,
