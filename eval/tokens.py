@@ -55,6 +55,13 @@ HW_METRICS: dict[str, tuple[str, str]] = {
 """Benchmark metric -> (path in a latency file, default format)."""
 
 
+def eol_digests(raw: bytes) -> set[str]:
+    """SHA-256 of a text file as stored and with LF or CRLF line endings. Git converts line endings between the
+    Windows dev machine (CRLF) and a Linux checkout or CI (LF), so a recorded digest must match either form."""
+    lf = raw.replace(b"\r\n", b"\n")
+    return {hashlib.sha256(b).hexdigest() for b in (raw, lf, lf.replace(b"\n", b"\r\n"))}
+
+
 def gpu_key(name: str | None) -> str:
     """Short GPU key used in poster tokens: "NVIDIA GeForce RTX 3090" -> "3090", "RTX PRO 6000 ..." -> "p6000"."""
     if not name:
@@ -268,8 +275,7 @@ class Resolver:
         self.result(parent)
         parent_path = self._cache[parent][0]
         origin = data.get("source") if isinstance(data.get("source"), Mapping) else {}
-        digest = hashlib.sha256(parent_path.read_bytes()).hexdigest()
-        if origin.get("file") != parent_path.name or origin.get("sha256") != digest:
+        if origin.get("file") != parent_path.name or origin.get("sha256") not in eol_digests(parent_path.read_bytes()):
             raise TokenError(
                 f"{source}: {name} was computed from {origin.get('file')}, not from the latest clean {parent} result "
                 f"{parent_path.name}: rerun its script"

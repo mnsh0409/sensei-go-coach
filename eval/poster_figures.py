@@ -3,7 +3,8 @@
     python -m eval.poster_figures                  # clean results only (the poster's rule)
     python -m eval.poster_figures --allow-dirty    # preview with uncommitted results (never for the export)
 
-Every figure reads committed results only: results/latency_*.json (Figure 2), logs/turns.jsonl (Figure 3), the
+Every figure reads committed results only: results/latency_*.json (Figure 2), results/turns.jsonl (Figure 3, a
+committed copy of the app's logs/turns.jsonl from the recorded games; logs/ is gitignored), the
 latest clean pilot and confirmatory C1 files (Figure 4) and results/relevance_baselines.json computed from the
 latest clean C2 file (Figure 5). Figure 1 is the system diagram. Sizes match the slots in poster/TOKENS.md.
 Needs the poster extra: pip install -e ".[poster]".
@@ -47,6 +48,11 @@ POSTER_BLUE, POSTER_ORANGE = "#0F4C5C", "#D9480F"
 GPU_LABEL = {"3090": "RTX 3090", "4090": "RTX 4090", "p6000": "RTX PRO 6000"}
 BACKEND_LABEL = {"cuda": "CUDA", "trt": "TensorRT"}
 GPU_ORDER = ["3090", "4090", "p6000"]  # keys from eval.tokens.gpu_key
+TABLE_ROWS = [(g, b) for g in GPU_ORDER for b in ("cuda", "trt")]
+"""The data rows of the poster's Table 1, in order (poster/build_poster.js)."""
+TABLE_ROW_IN = 0.46
+"""Height of one Table 1 row in inches. render_poster.py removes rows that were not benchmarked and moves Figure 2
+up by the freed height, so Figure 2 grows by the same amount here and keeps its aspect ratio in the slot."""
 LEVELS = ["1", "4", "8"]
 
 
@@ -86,8 +92,15 @@ def _save(fig: Any, out_dir: Path, name: str) -> Path:
     return path
 
 
-def _figure(name: str) -> tuple[Any, Any]:
-    w, h = SIZES[name]
+def fig2_size(bench: Mapping[tuple[str, str], Any]) -> tuple[float, float]:
+    """Figure 2's size: the slot plus the height freed by Table 1 rows that were not benchmarked."""
+    w, h = SIZES["fig2_throughput.png"]
+    missing = sum(1 for key in TABLE_ROWS if key not in bench)
+    return w, h + TABLE_ROW_IN * missing
+
+
+def _figure(name: str, size: tuple[float, float] | None = None) -> tuple[Any, Any]:
+    w, h = size or SIZES[name]
     fig, ax = plt.subplots(figsize=(w, h), layout="constrained")
     return fig, ax
 
@@ -220,7 +233,7 @@ def fig1_system(out_dir: Path) -> Path:
 
 def fig2_throughput(bench: Mapping[tuple[str, str], Mapping[str, Any]], out_dir: Path) -> Path:
     name = "fig2_throughput.png"
-    fig, ax = _figure(name)
+    fig, ax = _figure(name, fig2_size(bench))
     keys = [(g, b) for g in GPU_ORDER for b in ("cuda", "trt") if (g, b) in bench]
     keys += sorted(k for k in bench if k not in keys)
     if not keys:
@@ -404,11 +417,15 @@ def build_all(root: Path, out_dir: Path, allow_dirty: bool = False) -> list[Path
     results = root / "results"
     written = [fig1_system(out_dir)]
     written.append(fig2_throughput(load_benchmarks(results, allow_dirty), out_dir))
-    written.append(fig3_turn_latency(load_turns(root / "logs" / "turns.jsonl"), out_dir))
+    turns_path = root / "results" / "turns.jsonl"
+    if allow_dirty and not turns_path.is_file():
+        turns_path = root / "logs" / "turns.jsonl"  # preview only: the uncommitted app log
+    written.append(fig3_turn_latency(load_turns(turns_path), out_dir))
     resolver = Resolver(results, allow_dirty)
     written.append(fig4_c1_cost(resolver.result("pilot_C1"), resolver.result("C1"), out_dir))
     written.append(fig5_c2_uplift(resolver.result("C2base"), out_dir))
     manifest = {"allow_dirty": allow_dirty, "sources": dict(resolver.files), "figures": [p.name for p in written]}
+    manifest["turns"] = turns_path.relative_to(root).as_posix() if turns_path.is_file() else None
     manifest["benchmarks"] = sorted(path.name for path, _ in resolver.benchmarks().values())
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return written

@@ -170,7 +170,7 @@ slide.addTable(rows, {
   x: X2, y: 10.2, w: COLW, colW: [2.2, 1.8, 2.9, 3.1, 3.13], rowH: 0.46, fontFace: THEME.bodyFontFace,
   border: { type: "solid", color: THEME.colors.accent5, pt: 1 }, objectName: "Hardware table",
 });
-caption("Table 1. Engine throughput by GPU and backend from scripts/bench_engine.py: 50 fixed positions, 200 visits, the same nets and analysis config on every GPU.", X2, 13.55, COLW, "Table 1 caption", 0.75);
+caption("Table 1. Engine throughput by GPU and backend from scripts/bench_engine.py: 50 fixed positions, 200 visits, the same nets and analysis config for every GPU and backend.", X2, 13.55, COLW, "Table 1 caption", 0.75);
 
 figure(2, "Engine throughput (visits per second) by GPU and backend, at 1, 4 and 8 concurrent queries", "results/latency_*.json via eval/poster_figures.py", X2, 14.4, COLW, 4.0);
 caption("Figure 2. Visits per second at 1, 4 and 8 concurrent queries, by GPU and backend.", X2, 18.45, COLW, "Figure 2 caption", 0.6);

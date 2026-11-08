@@ -85,9 +85,11 @@ def _drop_second_author(prs: Any) -> None:
             runs[idx - 1].text = runs[idx - 1].text.rstrip() + "   "
 
 
-def _drop_unresolved_table_rows(prs: Any, resolve: Callable[[str], str]) -> list[str]:
-    """Remove hardware-table rows with a token that does not resolve; return the dropped row labels."""
-    dropped = []
+def _drop_unresolved_table_rows(prs: Any, resolve: Callable[[str], str]) -> tuple[list[str], int]:
+    """Remove hardware-table rows with a token that does not resolve; return the dropped row labels and the
+    height they freed (EMU)."""
+    dropped: list[str] = []
+    freed = 0
     for slide in prs.slides:
         for shape in slide.shapes:
             if not (shape.has_table and shape.name == TABLE_NAME):
@@ -101,11 +103,28 @@ def _drop_unresolved_table_rows(prs: Any, resolve: Callable[[str], str]) -> list
                         resolve(m.group(0))
                 except TokenError:
                     dropped.append(" ".join(c.text for c in list(row.cells)[:2]))
+                    freed += row.height
                     tbl._tbl.remove(row._tr)
                     continue
                 keep_h += row.height
             shape.height = Emu(tbl.rows[0].height + keep_h)
-    return dropped
+    return dropped, freed
+
+
+def _close_table_gap(prs: Any, freed: int) -> None:
+    """Move Table 1's caption up by the freed height and let Figure 2's slot take it over (the figure is built
+    taller by the same amount, eval.poster_figures.fig2_size)."""
+    if freed <= 0:
+        return
+    slide = prs.slides[0]
+    caption = _shape(slide, "Table 1 caption")
+    if caption is not None:
+        caption.top = Emu(caption.top - freed)
+    for name in ("Figure 2 slot", "Figure 2 label"):
+        shape = _shape(slide, name)
+        if shape is not None:
+            shape.top = Emu(shape.top - freed)
+            shape.height = Emu(shape.height + freed)
 
 
 def fill_text(prs: Any, resolver: Resolver, meta: Mapping[str, str], allow_missing: bool = False) -> list[str]:
@@ -153,6 +172,15 @@ def _replace_slot(slide: Any, slot_name: str, label_name: str, image: str | io.B
     return True
 
 
+def _fits(path: Path, width: int, height: int, tolerance_in: float = 0.05) -> bool:
+    """True when the PNG, scaled to the slot's width, is the slot's height within the tolerance (no distortion)."""
+    from PIL import Image  # installed with matplotlib and qrcode[pil]
+
+    with Image.open(path) as im:
+        px_w, px_h = im.size
+    return abs(width * px_h / px_w - height) <= tolerance_in * 914400
+
+
 def place_figures(prs: Any, figures: Path, repo_url: str, allow_missing: bool = False) -> list[str]:
     problems = []
     slide = prs.slides[0]
@@ -162,12 +190,19 @@ def place_figures(prs: Any, figures: Path, repo_url: str, allow_missing: bool = 
         problems.append(
             f"{figures} was not built from clean results: run python -m eval.poster_figures (without --allow-dirty)"
         )
+    if not allow_missing and built and built.get("turns") != "results/turns.jsonl":
+        problems.append("Figure 3: commit a copy of logs/turns.jsonl as results/turns.jsonl, then rebuild the figures")
     for num, file in FIGURE_FILES.items():
         path = figures / file
         if not path.is_file():
             if not allow_missing:
                 problems.append(f"Figure {num}: {path} is missing; run python -m eval.poster_figures")
             continue
+        slot = _shape(slide, f"Figure {num} slot")
+        if slot is not None and not allow_missing and not _fits(path, slot.width, slot.height):
+            problems.append(
+                f"Figure {num}: {file} does not match its slot's shape; rebuild with python -m eval.poster_figures"
+            )
         _replace_slot(slide, f"Figure {num} slot", f"Figure {num} label", str(path))
     if repo_url:
         import qrcode  # the poster extra
@@ -194,7 +229,8 @@ def render(
     meta = load_meta() if meta is None else meta
     resolver = Resolver(results, allow_dirty)
     prs = Presentation(str(template))
-    dropped = _drop_unresolved_table_rows(prs, resolver.render)
+    dropped, freed = _drop_unresolved_table_rows(prs, resolver.render)
+    _close_table_gap(prs, freed)
     problems = fill_text(prs, resolver, meta, allow_missing)
     problems += place_figures(prs, figures, meta.get("repo_url", ""), allow_missing)
     if problems:

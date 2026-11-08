@@ -126,6 +126,8 @@ def _poster_root(tmp_path: Path, bench_dir: Path) -> Path:
     for f in bench_dir.glob("latency_*.json"):
         shutil.copy(f, root / "results" / f.name)
     shutil.copytree(ROOT / "poster", root / "poster", ignore=shutil.ignore_patterns("figures", "*_filled.pptx"))
+    turns = [{"engine_ms": 600.0 + i, "human_policy_ms": 75.0, "explanation_ms": 18000.0 + 10 * i} for i in range(20)]
+    (root / "results" / "turns.jsonl").write_text("".join(json.dumps(t) + "\n" for t in turns), encoding="utf-8")
     (root / "poster" / "poster_meta.yaml").write_text(
         'author_1: "A. Author"\naffiliation_1: "Some University"\nauthor_2: ""\naffiliation_2: ""\n'
         'repo_url: "https://github.com/example/repo"\n',
@@ -150,7 +152,8 @@ def test_render_poster_end_to_end(tmp_path: Path, bench_dir: Path):
         pytest.skip("the committed results do not include a clean C2 and relevance_baselines.json")
     figures = root / "poster" / "figures"
     poster_figures.build_all(root, figures)
-    assert json.loads((figures / "manifest.json").read_text(encoding="utf-8"))["allow_dirty"] is False
+    manifest = json.loads((figures / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["allow_dirty"] is False and manifest["turns"] == "results/turns.jsonl"
 
     out = root / "poster" / "sensei_gtc2027_poster_filled.pptx"
     path, problems, dropped = render_poster.render(
@@ -220,3 +223,16 @@ def test_benchmark_output_does_not_dirty_the_next_backend_run(tmp_path: Path):
     assert git_info(tmp_path, ignore_untracked=("results/latency_",))[1] is False
     (tmp_path / "b.py").write_text("y = 2\n", encoding="utf-8")
     assert git_info(tmp_path, ignore_untracked=("results/latency_",))[1] is True
+
+
+def test_derived_results_match_across_line_endings(tmp_path: Path):
+    """A Windows checkout stores results with CRLF, a Linux checkout (CI) with LF; the recorded digest must hold."""
+    import hashlib
+
+    from eval.tokens import eol_digests
+
+    crlf = b'{\r\n  "a": 1\r\n}\r\n'
+    lf = crlf.replace(b"\r\n", b"\n")
+    recorded = hashlib.sha256(crlf).hexdigest()
+    assert recorded in eol_digests(lf) and recorded in eol_digests(crlf)
+    assert hashlib.sha256(b"other").hexdigest() not in eol_digests(lf)
