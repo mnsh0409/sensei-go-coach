@@ -1,0 +1,190 @@
+{
+  "kind": "engine_benchmark",
+  "git_commit": "e1ca240",
+  "git_dirty": false,
+  "katago_version": "1.18.0",
+  "nets": {
+    "main": {
+      "file": "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz",
+      "sha256": "9d7a6afed8ff5b74894727e156f04f0cd36060a24824892008fbb6e0cba51f1d"
+    },
+    "human": {
+      "file": "b18c384nbt-humanv0.bin.gz",
+      "sha256": "637746e44f0efe00ad1245a50aa9bbf0716efe364c43965ead97bd6835d84ab5"
+    }
+  },
+  "analysis_config": {
+    "file": "katago_analysis.cfg",
+    "sha256": "197f69cc8b4c4d49271f937396fa8c6ed37e58878e964e980f997c5df3f20d23",
+    "numAnalysisThreads": 8,
+    "numSearchThreadsPerAnalysisThread": 2,
+    "wideRootNoise": null,
+    "ignorePreRootHistory": null,
+    "rootNumSymmetriesToSample": null,
+    "reportAnalysisWinratesAs": "BLACK",
+    "nnCacheSizePowerOfTwo": 23,
+    "query_overrides": {
+      "analyze": {
+        "reportAnalysisWinratesAs": "SIDETOMOVE"
+      },
+      "human_policy": {
+        "reportAnalysisWinratesAs": "SIDETOMOVE",
+        "ignorePreRootHistory": false,
+        "rootNumSymmetriesToSample": 8
+      }
+    }
+  },
+  "hardware": {
+    "host": "DESKTOP-DNJODF2",
+    "os": "Windows 11",
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "driver": "610.88",
+    "cuda": "13.3",
+    "katago_backend": "cuda",
+    "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+    "ram_gb": 189.6,
+    "python": "3.12.8"
+  },
+  "katago_build": {
+    "label": "cuda12.8-cudnn9.8",
+    "binary": "katago.exe",
+    "sha256": "aed8e60ac8830040a3c81b014745f56e58d9e55379ce90b3a507fb761f03ecd7",
+    "version_text": [
+      "KataGo v1.18.0",
+      "Git revision: 32275820ca663c11e5aba2b57777aeaee528aafa",
+      "Compile Time: Aug 22 2026 11:33:56",
+      "Using CUDA backend",
+      "Compiled with CUDA version 12.8.61",
+      "Compiled to support contributing to online distributed selfplay"
+    ]
+  },
+  "repeats": 5,
+  "positions": 50,
+  "positions_seed": 20261027,
+  "visits": 200,
+  "human_profile": "rank_10k",
+  "started": "2026-11-09T18:55:44+08:00",
+  "finished": "2026-11-09T19:01:05+08:00",
+  "levels": {
+    "1": {
+      "concurrency": 1,
+      "repeats": 5,
+      "analyze": {
+        "p50_ms": 690.63,
+        "p95_ms": 1098.51,
+        "mean_ms": 751.45,
+        "p50_ms_runs": [
+          693.77,
+          661.42,
+          671.53,
+          881.98,
+          739.59
+        ],
+        "p50_ms_ci95": [
+          617.5,
+          841.8
+        ]
+      },
+      "human_policy": {
+        "p50_ms": 66.26,
+        "p95_ms": 98.11,
+        "mean_ms": 69.38
+      },
+      "visits_per_s": 268.8,
+      "visits_per_s_runs": [
+        281.6,
+        291.2,
+        275.7,
+        240.8,
+        254.5
+      ],
+      "visits_per_s_ci95": [
+        243.1,
+        294.4
+      ],
+      "queries_per_s": 1.34,
+      "human_policy_queries_per_s": 14.52,
+      "wall_s": 205.223
+    },
+    "4": {
+      "concurrency": 4,
+      "repeats": 5,
+      "analyze": {
+        "p50_ms": 745.23,
+        "p95_ms": 1055.16,
+        "mean_ms": 787.88,
+        "p50_ms_runs": [
+          719.46,
+          803.99,
+          732.01,
+          745.2,
+          808.47
+        ],
+        "p50_ms_ci95": [
+          710.2,
+          813.4
+        ]
+      },
+      "human_policy": {
+        "p50_ms": 135.81,
+        "p95_ms": 197.29,
+        "mean_ms": 139.95
+      },
+      "visits_per_s": 1000.1,
+      "visits_per_s_runs": [
+        1101.5,
+        927.5,
+        1023.2,
+        1031.1,
+        917.3
+      ],
+      "visits_per_s_ci95": [
+        904.1,
+        1096.1
+      ],
+      "queries_per_s": 4.98,
+      "human_policy_queries_per_s": 28.45,
+      "wall_s": 59.449
+    },
+    "8": {
+      "concurrency": 8,
+      "repeats": 5,
+      "analyze": {
+        "p50_ms": 1138.91,
+        "p95_ms": 1278.46,
+        "mean_ms": 1129.12,
+        "p50_ms_runs": [
+          1059.24,
+          1221.87,
+          1182.59,
+          1100.34,
+          1137.25
+        ],
+        "p50_ms_ci95": [
+          1060.2,
+          1220.3
+        ]
+      },
+      "human_policy": {
+        "p50_ms": 185.97,
+        "p95_ms": 231.12,
+        "mean_ms": 185.6
+      },
+      "visits_per_s": 1313.5,
+      "visits_per_s_runs": [
+        1466.7,
+        1215.6,
+        1282.5,
+        1320.0,
+        1282.5
+      ],
+      "visits_per_s_ci95": [
+        1197.3,
+        1429.6
+      ],
+      "queries_per_s": 6.54,
+      "human_policy_queries_per_s": 41.98,
+      "wall_s": 44.412
+    }
+  }
+}
