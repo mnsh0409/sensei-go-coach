@@ -266,7 +266,7 @@ def fig2_throughput(bench: Mapping[tuple[str, str], Mapping[str, Any]], out_dir:
     ax.grid(axis="x", visible=False)
     ax.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter("{x:,.0f}"))
     ax.margins(y=0.15)
-    ax.legend(loc="upper left", frameon=False, ncols=3)
+    ax.legend(loc="lower left", bbox_to_anchor=(0.0, 1.0), frameon=False, ncols=3)  # above the plot, clear of the bars
     return _save(fig, out_dir, name)
 
 

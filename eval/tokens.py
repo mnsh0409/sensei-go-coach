@@ -30,6 +30,7 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +63,16 @@ def eol_digests(raw: bytes) -> set[str]:
     Windows dev machine (CRLF) and a Linux checkout or CI (LF), so a recorded digest must match either form."""
     lf = raw.replace(b"\r\n", b"\n")
     return {hashlib.sha256(b).hexdigest() for b in (raw, lf, lf.replace(b"\n", b"\r\n"))}
+
+
+def finished_at(data: Mapping[str, Any]) -> datetime:
+    """When a result file finished, as an aware datetime (machines write their own time zones, so the ISO
+    strings must not be compared as text); unparseable or missing times sort first."""
+    try:
+        value = datetime.fromisoformat(str(data.get("finished", "")))
+    except ValueError:
+        return datetime.min.replace(tzinfo=UTC)
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 def gpu_key(name: str | None) -> str:
@@ -334,7 +345,7 @@ class Resolver:
                 key = (gpu_key(hw.get("gpu")), str(hw.get("katago_backend") or "").lower())
                 if not key[0] or not key[1] or key[1] == "fake":
                     continue
-                if key not in found or str(data.get("finished", "")) >= str(found[key][1].get("finished", "")):
+                if key not in found or finished_at(data) >= finished_at(found[key][1]):
                     found[key] = (path, dict(data))
             self._bench = found
         return self._bench

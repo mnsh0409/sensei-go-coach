@@ -257,3 +257,12 @@ def test_derived_results_match_across_line_endings(tmp_path: Path):
     recorded = hashlib.sha256(crlf).hexdigest()
     assert recorded in eol_digests(lf) and recorded in eol_digests(crlf)
     assert hashlib.sha256(b"other").hexdigest() not in eol_digests(lf)
+
+
+def test_newest_benchmark_compares_times_across_time_zones(tmp_path: Path):
+    """A cluster writes UTC, the PC writes +08:00: 10:44 UTC is 18:44 Taipei, later than 18:00 Taipei."""
+    _write(tmp_path / "latency_pc.json", _latency("NVIDIA GeForce RTX 3090", "cuda", (1.0, 2.0, 100.0),
+                                                  finished="2026-11-09T18:00:00+08:00"))
+    _write(tmp_path / "latency_node.json", _latency("NVIDIA GeForce RTX 3090", "cuda", (1.0, 2.0, 200.0),
+                                                    finished="2026-11-09T10:44:00+00:00"))
+    assert Resolver(tmp_path).render("{{hw.3090.cuda.vps}}") == "200"
