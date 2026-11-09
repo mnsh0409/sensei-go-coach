@@ -1,0 +1,107 @@
+{
+  "kind": "engine_benchmark",
+  "git_commit": "e94244d",
+  "git_dirty": false,
+  "katago_version": "1.18.0",
+  "nets": {
+    "main": {
+      "file": "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz",
+      "sha256": "9d7a6afed8ff5b74894727e156f04f0cd36060a24824892008fbb6e0cba51f1d"
+    },
+    "human": {
+      "file": "b18c384nbt-humanv0.bin.gz",
+      "sha256": "637746e44f0efe00ad1245a50aa9bbf0716efe364c43965ead97bd6835d84ab5"
+    }
+  },
+  "analysis_config": {
+    "file": "katago_analysis.cfg",
+    "sha256": "197f69cc8b4c4d49271f937396fa8c6ed37e58878e964e980f997c5df3f20d23",
+    "numAnalysisThreads": 8,
+    "numSearchThreadsPerAnalysisThread": 2,
+    "wideRootNoise": null,
+    "ignorePreRootHistory": null,
+    "rootNumSymmetriesToSample": null,
+    "reportAnalysisWinratesAs": "BLACK",
+    "nnCacheSizePowerOfTwo": 23,
+    "query_overrides": {
+      "analyze": {
+        "reportAnalysisWinratesAs": "SIDETOMOVE"
+      },
+      "human_policy": {
+        "reportAnalysisWinratesAs": "SIDETOMOVE",
+        "ignorePreRootHistory": false,
+        "rootNumSymmetriesToSample": 8
+      }
+    }
+  },
+  "hardware": {
+    "host": "martin-MS-7E07",
+    "os": "Linux 6.8.0-138-generic",
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "driver": "535.309.01",
+    "cuda": "12.2",
+    "katago_backend": "trt",
+    "cpu": "x86_64",
+    "ram_gb": 62.6,
+    "python": "3.12.14"
+  },
+  "positions": 50,
+  "positions_seed": 20261027,
+  "visits": 200,
+  "human_profile": "rank_10k",
+  "started": "2026-11-09T16:41:22+08:00",
+  "finished": "2026-11-09T16:43:45+08:00",
+  "levels": {
+    "1": {
+      "concurrency": 1,
+      "analyze": {
+        "p50_ms": 419.62,
+        "p95_ms": 481.26,
+        "mean_ms": 425.74
+      },
+      "human_policy": {
+        "p50_ms": 66.73,
+        "p95_ms": 77.94,
+        "mean_ms": 67.44
+      },
+      "visits_per_s": 472.1,
+      "queries_per_s": 2.35,
+      "human_policy_queries_per_s": 14.82,
+      "wall_s": 24.663
+    },
+    "4": {
+      "concurrency": 4,
+      "analyze": {
+        "p50_ms": 454.81,
+        "p95_ms": 550.73,
+        "mean_ms": 462.96
+      },
+      "human_policy": {
+        "p50_ms": 126.28,
+        "p95_ms": 163.79,
+        "mean_ms": 131.63
+      },
+      "visits_per_s": 1661.8,
+      "queries_per_s": 8.27,
+      "human_policy_queries_per_s": 29.66,
+      "wall_s": 7.733
+    },
+    "8": {
+      "concurrency": 8,
+      "analyze": {
+        "p50_ms": 546.82,
+        "p95_ms": 641.29,
+        "mean_ms": 553.49
+      },
+      "human_policy": {
+        "p50_ms": 176.95,
+        "p95_ms": 201.8,
+        "mean_ms": 164.14
+      },
+      "visits_per_s": 2689.1,
+      "queries_per_s": 13.38,
+      "human_policy_queries_per_s": 47.22,
+      "wall_s": 4.796
+    }
+  }
+}
