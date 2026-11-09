@@ -255,8 +255,11 @@ def fig2_throughput(bench: Mapping[tuple[str, str], Mapping[str, Any]], out_dir:
         bars = ax.bar(xs, ys, width=width - 0.03, color=SEQ[j], label=f"{level} concurrent", zorder=2)
         if any(e > 0 for e in errs[0] + errs[1]):
             ax.errorbar(xs, ys, yerr=errs, fmt="none", ecolor=INK, elinewidth=1.3, capsize=3, zorder=3)
-        if level == LEVELS[-1]:
-            ax.bar_label(bars, labels=[f"{y:,.0f}" for y in ys], padding=3, fontsize=13, color=INK)
+        if level == LEVELS[-1]:  # value above the top of its error bar, so the two never overlap
+            top = max(y + e for y, e in zip(ys, errs[1], strict=True)) if ys else 0.0
+            for x, y, e in zip(xs, ys, errs[1], strict=True):
+                ax.text(x, y + e + 0.025 * top, f"{y:,.0f}", ha="center", va="bottom", fontsize=13, color=INK)
+        del bars
     ax.set_xticks(range(len(keys)))
     ax.set_xticklabels([f"{GPU_LABEL.get(g, g)}\n{BACKEND_LABEL.get(b, b)}" for g, b in keys])
     ax.set_ylabel("visits per second")
@@ -321,7 +324,7 @@ def fig3_turn_latency(turns: Sequence[Mapping[str, Any]], out_dir: Path) -> Path
     ax.set_yticks(ys)
     ax.set_yticklabels([r["label"] for r in rows])
     ax.set_xscale("log")
-    ax.set_xlim(20, max(r["p95"] for r in rows) * 30)
+    ax.set_xlim(20, max(r["p95"] for r in rows) * 90)
     ax.set_xlabel("milliseconds per turn (log scale; dark bar median, light bar p95)")
     ax.grid(axis="y", visible=False)
     return _save(fig, out_dir, name)
