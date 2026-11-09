@@ -1,0 +1,25 @@
+{
+  "allow_dirty": false,
+  "sources": {
+    "pilot_C1": "pilot_C1_20261030-180727.json",
+    "C1": "C1_20261031-000756.json",
+    "C2": "C2_20261031-134717.json",
+    "C2base": "relevance_baselines.json"
+  },
+  "figures": [
+    "fig1_system.png",
+    "fig2_throughput.png",
+    "fig3_turn_latency.png",
+    "fig4_c1_cost.png",
+    "fig5_c2_uplift.png"
+  ],
+  "turns": "results/turns.jsonl",
+  "benchmarks": [
+    "latency_3090-cu128_cuda.json",
+    "latency_3090-cu128_trt.json",
+    "latency_4090-cu128_cuda.json",
+    "latency_4090-cu128_trt.json",
+    "latency_p6000_cuda.json",
+    "latency_p6000_trt.json"
+  ]
+}
