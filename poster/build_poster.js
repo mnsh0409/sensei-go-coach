@@ -154,14 +154,14 @@ const TH = { bold: true, color: THEME.colors.lt1, fill: { color: THEME.colors.ac
 const TD = { fontSize: 16, align: "center", valign: "middle", color: THEME.colors.dk1 };
 const TK = { fontSize: 16, align: "center", valign: "middle", color: THEME.colors.accent2, bold: true };
 const rows = [
-  ["GPU", "Backend", "Driver / CUDA", "Visits / s (8 concurrent)", "analyze p50, 1 query (ms)"].map((h) => ({ text: h, options: Object.assign({}, TH) })),
+  ["GPU", "Backend", "Driver / CUDA", "Visits / s, 8 concurrent (95% CI)", "analyze p50, 1 query (ms)"].map((h) => ({ text: h, options: Object.assign({}, TH) })),
 ];
 for (const [gpu, g] of [["RTX 3090", "3090"], ["RTX 4090", "4090"], ["RTX PRO 6000", "p6000"]]) {
   for (const [be, b] of [["CUDA", "cuda"], ["TensorRT", "trt"]]) {
     rows.push([
       { text: gpu, options: Object.assign({}, TD) }, { text: be, options: Object.assign({}, TD) },
       { text: `{{hw.${g}.${b}.cu}}`, options: Object.assign({}, TK) },
-      { text: `{{hw.${g}.${b}.vps}}`, options: Object.assign({}, TK) },
+      { text: `{{hw.${g}.${b}.vps}} {{hw.${g}.${b}.pm}}`, options: Object.assign({}, TK) },
       { text: `{{hw.${g}.${b}.p50}}`, options: Object.assign({}, TK) },
     ]);
   }
@@ -170,7 +170,7 @@ slide.addTable(rows, {
   x: X2, y: 10.2, w: COLW, colW: [2.2, 1.8, 2.9, 3.1, 3.13], rowH: 0.46, fontFace: THEME.bodyFontFace,
   border: { type: "solid", color: THEME.colors.accent5, pt: 1 }, objectName: "Hardware table",
 });
-caption("Table 1. Engine throughput by GPU and backend from scripts/bench_engine.py: 50 fixed positions, 200 visits, the same nets and analysis config for every GPU and backend.", X2, 13.55, COLW, "Table 1 caption", 0.75);
+caption("Table 1. scripts/bench_engine.py, mean and 95% CI over {{hw.runs}} runs: 50 fixed positions, 200 visits, the same nets and analysis config everywhere. KataGo 1.18.0 builds: {{hw.builds}}.", X2, 13.55, COLW, "Table 1 caption", 0.75);
 
 figure(2, "Engine throughput (visits per second) by GPU and backend, at 1, 4 and 8 concurrent queries", "results/latency_*.json via eval/poster_figures.py", X2, 14.4, COLW, 4.0);
 caption("Figure 2. Visits per second at 1, 4 and 8 concurrent queries, by GPU and backend.", X2, 18.45, COLW, "Figure 2 caption", 0.6);

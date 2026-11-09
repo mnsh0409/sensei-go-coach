@@ -22,7 +22,10 @@ Figure slots are gray boxes with a dashed border; `eval/poster_figures.py` write
 | `C2base.lesson_vs_rand` | `results/relevance_baselines.json` (from the same C2 file) | how the lesson's rise compares with a random admissible move's |
 | `C3.learners`, `C3.sessions`, `C3.gap_pct`, `C3.details.gap_closure.ci.*` | `results/C3_*.json` | simulated learners, sessions, gap closure to the oracle and its CI |
 | `hw.<gpu>.<backend>.cu` | `results/latency_*.json` `hardware.driver`, `hardware.cuda` | "driver / CUDA" (Table 1) |
-| `hw.<gpu>.<backend>.vps` | same file, `levels.8.visits_per_s` | visits per second at 8 concurrent queries (Table 1) |
+| `hw.<gpu>.<backend>.vps` | same file, `levels.8.visits_per_s` | visits per second at 8 concurrent queries, mean over repeats (Table 1) |
+| `hw.<gpu>.<backend>.pm` | same file, `levels.8.visits_per_s_ci95` | "± half-width" of its 95% t-interval over repeats (Table 1) |
+| `hw.runs` | every benchmark file used, `repeats` | runs per GPU and backend; the files must agree |
+| `hw.builds` | every benchmark file used, `katago_build.label` | the KataGo release builds, comma-separated (Table 1 caption) |
 | `hw.<gpu>.<backend>.p50` | same file, `levels.1.analyze.p50_ms` | analyze p50 latency at 1 query, ms (Table 1) |
 | `hw.hp_ms` | the latency file of C1's GPU and backend, `levels.1.human_policy.mean_ms` | human-policy query latency |
 | `hw.conc_gain` | same file, visits per second at 8 over 1 concurrent query | concurrency gain on one GPU |

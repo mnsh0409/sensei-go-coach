@@ -2,22 +2,31 @@
 
     python scripts/bench_engine.py --backend cuda                       # real KataGo from .env
     python scripts/bench_engine.py --backend cuda --concurrency 1 4 8 --positions 50 --visits 200
+    python scripts/bench_engine.py --backend trt --build-label trt10.9-cuda12.8 --repeats 5
     python scripts/bench_engine.py --fake --positions 6 --visits 50     # offline, against tests/fake_katago.py
 
 Writes results/latency_<host>_<backend>.json with the hardware block from eval/README.md and, per concurrency level:
 analyze p50/p95/mean latency (ms), human_policy p50/p95/mean latency (ms), visits per second and queries per second.
 The positions are random legal games from a fixed seed, so every machine and backend measures the same work.
 KataGo's neural-net cache is cleared before each level so that later levels do not reuse earlier evaluations.
+
+Every level is measured `--repeats` times (default 5, levels interleaved: 1, 4, 8, 1, 4, 8, ...). Visits per second
+and queries per second are the means over the repeats, with the per-run values and a 95% t-interval
+(`visits_per_s_ci95`); latency percentiles pool the samples of all repeats. `katago_build` records the KataGo
+binary's SHA-256, its `version` output and the human `--build-label` (for example cuda12.8-cudnn9.8), so a
+comparison across machines can show which build each one ran.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import platform
 import random
 import re
 import statistics
+import subprocess
 import sys
 import time
 from collections.abc import Callable, Sequence
@@ -119,6 +128,62 @@ def bench_level(engine: Any, positions: Sequence[Position], visits: int, concurr
         "queries_per_s": round(len(positions) / analyze_wall, 2),
         "human_policy_queries_per_s": round(len(positions) / human_wall, 2),
         "wall_s": round(analyze_wall + human_wall, 3),
+        "_analyze_s": analyze_s,
+        "_human_s": human_s,
+    }
+
+
+def t_interval(values: Sequence[float], level: float = 0.95) -> list[float] | None:
+    """Two-sided t-interval for the mean of the repeats; None with fewer than two."""
+    if len(values) < 2:
+        return None
+    from scipy import stats
+
+    mean = statistics.fmean(values)
+    half = float(stats.t.ppf(0.5 + level / 2, len(values) - 1)) * statistics.stdev(values) / math.sqrt(len(values))
+    return [round(mean - half, 1), round(mean + half, 1)]
+
+
+def combine_runs(runs: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """One level's repeats: means with per-run values and 95% CIs; latency percentiles over the pooled samples."""
+    vps = [r["visits_per_s"] for r in runs]
+    p50 = [r["analyze"]["p50_ms"] for r in runs]
+    analyze = _summary_ms([x for r in runs for x in r["_analyze_s"]])
+    analyze["p50_ms_runs"] = p50
+    analyze["p50_ms_ci95"] = t_interval(p50)
+    return {
+        "concurrency": runs[0]["concurrency"],
+        "repeats": len(runs),
+        "analyze": analyze,
+        "human_policy": _summary_ms([x for r in runs for x in r["_human_s"]]),
+        "visits_per_s": round(statistics.fmean(vps), 1),
+        "visits_per_s_runs": vps,
+        "visits_per_s_ci95": t_interval(vps),
+        "queries_per_s": round(statistics.fmean(r["queries_per_s"] for r in runs), 2),
+        "human_policy_queries_per_s": round(statistics.fmean(r["human_policy_queries_per_s"] for r in runs), 2),
+        "wall_s": round(sum(r["wall_s"] for r in runs), 3),
+    }
+
+
+def katago_build(exe: str, label: str | None) -> dict[str, Any]:
+    """Which KataGo binary ran: SHA-256 of the real executable (inside an unpacked AppImage, usr/bin/katago),
+    the first lines of `katago version`, and the human label of the release build."""
+    path = Path(exe)
+    binary = path.parent / "usr" / "bin" / "katago" if path.name == "AppRun" else path
+    lines: list[str] | None
+    try:
+        out = subprocess.run(
+            [str(path), "version"], capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=60, check=False,
+        )
+        lines = [line.strip() for line in (out.stdout or "").splitlines() if line.strip()][:8]
+    except (OSError, ValueError, subprocess.SubprocessError):
+        lines = None
+    return {
+        "label": label,
+        "binary": binary.name,
+        "sha256": sha256_file(binary) if binary.is_file() else None,
+        "version_text": lines,
     }
 
 
@@ -144,7 +209,12 @@ def run(args: argparse.Namespace) -> Path:
     try:
         version = engine.version()
         engine.analyze(positions[0], min(args.visits, 10))  # warm-up: loads the nets onto the GPU
-        levels = {str(c): bench_level(engine, positions, args.visits, c) for c in args.concurrency}
+        runs: dict[str, list[dict[str, Any]]] = {str(c): [] for c in args.concurrency}
+        for repeat in range(args.repeats):
+            for c in args.concurrency:
+                runs[str(c)].append(bench_level(engine, positions, args.visits, c))
+            print(f"repeat {repeat + 1}/{args.repeats} done", flush=True)
+        levels = {c: combine_runs(rows) for c, rows in runs.items()}
     finally:
         engine.close()
     commit, dirty = git_info(ROOT, ignore_untracked=("results/latency_",))
@@ -168,6 +238,8 @@ def run(args: argparse.Namespace) -> Path:
             "query_overrides": {k: dict(v) for k, v in engine.QUERY_OVERRIDES.items()},
         },
         "hardware": hardware_block(backend),
+        "katago_build": None if args.fake else katago_build(engine.exe, args.build_label),
+        "repeats": args.repeats,
         "positions": args.positions,
         "positions_seed": args.seed,
         "visits": args.visits,
@@ -192,20 +264,28 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--fake", action="store_true", help="benchmark tests/fake_katago.py instead of KataGo")
     ap.add_argument("--host", default=None, help="host label in the file name (default: the machine name)")
     ap.add_argument("--seed", type=int, default=SEED)
+    ap.add_argument("--repeats", type=int, default=5, help="measurements per concurrency level (default 5)")
+    ap.add_argument(
+        "--build-label",
+        default=None,
+        help="which KataGo release build, for example cuda12.8-cudnn9.8 or trt10.9-cuda12.8",
+    )
     ap.add_argument("--out", default=str(ROOT / "results"))
     return ap
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.positions < 1 or any(c < 1 for c in args.concurrency):
-        raise SystemExit("--positions and every --concurrency value must be at least 1")
+    if args.positions < 1 or args.repeats < 1 or any(c < 1 for c in args.concurrency):
+        raise SystemExit("--positions, --repeats and every --concurrency value must be at least 1")
     path = run(args)
     data = json.loads(path.read_text(encoding="utf-8"))
     for level, row in data["levels"].items():
+        ci = row.get("visits_per_s_ci95")
+        ci_text = f" (95% CI {ci[0]:.0f} to {ci[1]:.0f})" if ci else ""
         print(
             f"concurrency {level:>2}: analyze p50 {row['analyze']['p50_ms']:8.1f} ms,"
-            f" p95 {row['analyze']['p95_ms']:8.1f} ms; {row['visits_per_s']:10.1f} visits/s;"
+            f" p95 {row['analyze']['p95_ms']:8.1f} ms; {row['visits_per_s']:10.1f} visits/s{ci_text};"
             f" human_policy p50 {row['human_policy']['p50_ms']:7.1f} ms"
         )
     best = max(data["levels"].values(), key=lambda row: row["visits_per_s"])

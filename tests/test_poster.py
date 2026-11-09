@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _latency(gpu: str, backend: str, vps: tuple[float, float, float], *, dirty: bool = False, cuda: str | None = "12.8",
-             finished: str = "2026-11-08T10:00:00+08:00") -> dict:
+             finished: str = "2026-11-08T10:00:00+08:00", repeats: int = 5, label: str | None = None) -> dict:
     levels = {}
     for c, v in zip(("1", "4", "8"), vps, strict=True):
         levels[c] = {
@@ -24,12 +24,15 @@ def _latency(gpu: str, backend: str, vps: tuple[float, float, float], *, dirty: 
             "analyze": {"p50_ms": 800.0 / int(c) ** 0.2, "p95_ms": 1000.0, "mean_ms": 810.0},
             "human_policy": {"p50_ms": 70.0, "p95_ms": 90.0, "mean_ms": 72.4},
             "visits_per_s": v,
+            "visits_per_s_ci95": [v - 20.0, v + 20.0] if repeats > 1 else None,
         }
     return {
         "kind": "engine_benchmark",
         "git_commit": "abc1234",
         "git_dirty": dirty,
         "hardware": {"gpu": gpu, "driver": "610.88", "cuda": cuda, "katago_backend": backend},
+        "katago_build": {"label": label or ("trt10.9-cuda12.8" if backend == "trt" else "cuda12.8-cudnn9.8")},
+        "repeats": repeats,
         "finished": finished,
         "levels": levels,
     }
@@ -93,6 +96,24 @@ def test_hw_tokens_read_clean_benchmarks_only(bench_dir: Path):
     assert Resolver(bench_dir, allow_dirty=True).render("{{hw.p6000.cuda.vps}}") == "99,999"
     with pytest.raises(TokenError, match="unknown benchmark metric"):
         r.render("{{hw.3090.cuda.nope}}")
+    assert r.render("{{hw.3090.trt.pm}}") == "± 20"
+    assert r.render("{{hw.runs}}") == "5"
+    assert r.render("{{hw.builds}}") == "cuda12.8-cudnn9.8, trt10.9-cuda12.8"
+
+
+def test_hw_tokens_refuse_mixed_repeats_and_missing_labels(tmp_path: Path):
+    _write(tmp_path / "latency_a.json", _latency("NVIDIA GeForce RTX 3090", "cuda", (250.0, 990.0, 1400.0), repeats=1))
+    _write(tmp_path / "latency_b.json", _latency("NVIDIA GeForce RTX 4090", "cuda", (400.0, 1600.0, 2000.0)))
+    r = Resolver(tmp_path)
+    with pytest.raises(TokenError, match="differ in repeats"):
+        r.render("{{hw.runs}}")
+    with pytest.raises(TokenError, match="no CI"):
+        r.render("{{hw.3090.cuda.pm}}")
+    unlabeled = _latency("NVIDIA GeForce RTX 3090", "trt", (300.0, 1200.0, 1820.0))
+    unlabeled["katago_build"] = None
+    _write(tmp_path / "latency_c.json", unlabeled)
+    with pytest.raises(TokenError, match="no KataGo build label"):
+        Resolver(tmp_path).render("{{hw.builds}}")
 
 
 def test_hw_cuda_missing_and_single_gpu_gain(tmp_path: Path):

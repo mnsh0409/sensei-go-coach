@@ -242,13 +242,19 @@ def fig2_throughput(bench: Mapping[tuple[str, str], Mapping[str, Any]], out_dir:
         return _save(fig, out_dir, name)
     width = 0.26
     for j, level in enumerate(LEVELS):
-        xs, ys = [], []
+        xs, ys, errs = [], [], [[], []]
         for i, key in enumerate(keys):
             lv = bench[key].get("levels", {}).get(level)
             if lv:
                 xs.append(i + (j - 1) * width)
-                ys.append(float(lv["visits_per_s"]))
+                y = float(lv["visits_per_s"])
+                ys.append(y)
+                ci = lv.get("visits_per_s_ci95") or [y, y]
+                errs[0].append(y - float(ci[0]))
+                errs[1].append(float(ci[1]) - y)
         bars = ax.bar(xs, ys, width=width - 0.03, color=SEQ[j], label=f"{level} concurrent", zorder=2)
+        if any(e > 0 for e in errs[0] + errs[1]):
+            ax.errorbar(xs, ys, yerr=errs, fmt="none", ecolor=INK, elinewidth=1.3, capsize=3, zorder=3)
         if level == LEVELS[-1]:
             ax.bar_label(bars, labels=[f"{y:,.0f}" for y in ys], padding=3, fontsize=13, color=INK)
     ax.set_xticks(range(len(keys)))

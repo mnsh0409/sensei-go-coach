@@ -45,6 +45,8 @@ def test_bench_writes_the_contract(tmp_path):
             "2",
             "--host",
             "test host",
+            "--repeats",
+            "2",
             "--out",
             str(tmp_path),
         ]
@@ -60,3 +62,23 @@ def test_bench_writes_the_contract(tmp_path):
         for key in ("analyze", "human_policy"):
             assert row[key]["p50_ms"] > 0 and row[key]["p95_ms"] >= row[key]["p50_ms"]
         assert row["visits_per_s"] > 0 and row["queries_per_s"] > 0
+        assert row["repeats"] == 2 and len(row["visits_per_s_runs"]) == 2
+        lo, hi = row["visits_per_s_ci95"]
+        assert lo <= row["visits_per_s"] <= hi
+        assert len(row["analyze"]["p50_ms_runs"]) == 2
+    assert data["repeats"] == 2 and data["katago_build"] is None  # fake engine: no binary to fingerprint
+
+
+def test_t_interval_and_build_fingerprint(tmp_path):
+    bench = load_bench()
+    assert bench.t_interval([10.0]) is None
+    lo, hi = bench.t_interval([10.0, 12.0, 11.0, 13.0, 9.0])  # mean 11, sd 1.58, t(0.975, 4) = 2.776
+    assert abs(lo - 9.0) < 0.05 and abs(hi - 13.0) < 0.05
+    appdir = tmp_path / "squashfs-root"
+    (appdir / "usr" / "bin").mkdir(parents=True)
+    (appdir / "usr" / "bin" / "katago").write_bytes(b"binary")
+    app_run = appdir / "AppRun"
+    app_run.write_text("not runnable", encoding="utf-8")
+    info = bench.katago_build(str(app_run), "cuda12.8-cudnn9.8")
+    assert info["label"] == "cuda12.8-cudnn9.8" and info["binary"] == "katago"
+    assert info["sha256"] == "9a3a45d01531a20e89ac6ae10b0b0beb0492acd7216a368aa062d1a5fecaf9cd"  # sha256(b"binary")

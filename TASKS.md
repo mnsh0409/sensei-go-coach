@@ -211,6 +211,10 @@ queries, not one batched pass; the serial-time estimate and the throughput-formu
 for the measured C1 games per hour and the 1-to-8 concurrency gain; C2 is reported against its random-move
 baseline; C3 added). Waiting on: clean `results/latency_*.json` for the 3090, 4090 and RTX PRO 6000 on CUDA and
 TensorRT, and `affiliation_1` in `poster/poster_meta.yaml`.
+2026-11-09: the 4090's driver supports CUDA 12 only, so every GPU is rerun with KataGo 1.18.0's CUDA 12.8 builds
+(cuda12.8-cudnn9.8 and trt10.9-cuda12.8) for a matched comparison; `scripts/bench_engine.py` now measures 5 repeats
+per level (mean and 95% t-interval) and records the KataGo binary's SHA-256, `version` output and a build label.
+Table 1 shows mean ± CI half-width, and its caption lists the runs and builds from the files (`hw.runs`, `hw.builds`).
 
 ## T12 C2b: pre-registered lesson relevance on fresh games (after submission, for the poster; agreed 2026-10-31)
 

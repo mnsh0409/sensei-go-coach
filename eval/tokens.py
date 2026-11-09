@@ -13,10 +13,12 @@ A token is `{{<source>.<path>[:<format>]}}`:
 
 The `hw` source (poster, TASKS.md T10b) reads the CLEAN engine benchmarks `results/latency_*.json` written by
 scripts/bench_engine.py, keyed by GPU (`3090`, `4090`, `p6000`, from `hardware.gpu`) and backend (`cuda`, `trt`):
-`hw.<gpu>.<backend>.{vps,p50,p95,hp,cu}` (visits per second at 8 concurrent queries; analyze p50 and p95 and
-human-policy mean in ms at 1 query; "driver / CUDA"), and the summaries `hw.hp_ms` (human-policy mean ms on the
-C1 GPU and backend), `hw.conc_gain` (visits per second at 8 over 1 concurrent query there) and `hw.trt_gain`
-(TensorRT over CUDA visits per second at 8 concurrent queries, as "1.3×" or the range "1.2× to 1.5×" over GPUs).
+`hw.<gpu>.<backend>.{vps,pm,p50,p95,hp,cu}` (visits per second at 8 concurrent queries, the mean over repeats; the
+half-width of its 95% CI as "± 18"; analyze p50 and p95 and human-policy mean in ms at 1 query; "driver / CUDA"),
+and the summaries `hw.hp_ms` (human-policy mean ms on the C1 GPU and backend), `hw.conc_gain` (visits per second at
+8 over 1 concurrent query there), `hw.trt_gain` (TensorRT over CUDA visits per second at 8 concurrent queries, as
+"1.3×" or the range "1.2× to 1.5×" over GPUs), `hw.runs` (the repeats per file, which must agree across the
+files used) and `hw.builds` (the distinct KataGo build labels of the files used, comma-separated).
 
 Only clean results resolve, so a number in the README can always be traced to a commit. A missing result or a
 null value raises TokenError naming the token.
@@ -355,6 +357,11 @@ class Resolver:
                     if not hw.get("driver"):
                         raise KeyError("hardware.driver")
                     return f"{hw['driver']} / {hw.get('cuda') or 'n/a'}"
+                if metric == "pm":
+                    ci = lookup(data, "levels.8.visits_per_s_ci95")
+                    if not ci:
+                        raise TokenError(f"{token}: no CI in the benchmark; rerun bench_engine.py with --repeats")
+                    return "± " + format((float(ci[1]) - float(ci[0])) / 2, fmt or ",.0f")
                 if metric not in HW_METRICS:
                     known = ", ".join(["cu", *HW_METRICS])
                     raise TokenError(f"{token}: unknown benchmark metric {metric!r}; known: {known}")
@@ -369,6 +376,10 @@ class Resolver:
                 default_fmt = ".1f"
             elif path == "trt_gain":
                 return self._trt_gain(token, fmt or ".1f")
+            elif path == "runs":
+                return self._runs(token)
+            elif path == "builds":
+                return self._builds(token)
             else:
                 raise TokenError(f"{token}: unknown hw token {path!r}")
         except KeyError as err:
@@ -382,6 +393,24 @@ class Resolver:
     def _c1_gpu(self) -> tuple[str, str]:
         hw = self.result("C1").get("hardware") or {}
         return gpu_key(hw.get("gpu")), str(hw.get("katago_backend") or "").lower()
+
+    def _runs(self, token: str) -> str:
+        counts = {int(data.get("repeats") or 1) for _, data in self.benchmarks().values()}
+        if len(counts) != 1:
+            raise TokenError(f"{token}: the benchmark files differ in repeats ({sorted(counts)}); rerun them alike")
+        return str(counts.pop())
+
+    def _builds(self, token: str) -> str:
+        labels = []
+        for (_gpu, _backend), (path, data) in sorted(self.benchmarks().items(), key=lambda kv: (kv[0][1], kv[0][0])):
+            label = (data.get("katago_build") or {}).get("label")
+            if not label:
+                raise TokenError(f"{token}: {path.name} has no KataGo build label (rerun with --build-label)")
+            if label not in labels:
+                labels.append(label)
+        if not labels:
+            raise TokenError(f"{token}: no clean benchmark files")
+        return ", ".join(labels)
 
     def _trt_gain(self, token: str, fmt: str) -> str:
         bench = self.benchmarks()
